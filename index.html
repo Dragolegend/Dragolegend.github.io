@@ -1,0 +1,2837 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dragon Gallery</title>
+<style>
+  :root{
+    --ui-bg: rgba(15,17,23,.95);
+    --ui-fg: #ece6d6;
+    --ui-muted: #9d9686;
+    --ui-accent: #e8c27a;
+    --ui-line: rgba(232,194,122,.22);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0d0f14}
+  body{font:13px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif;color:var(--ui-fg)}
+  body.hide-cursor{cursor:none}
+  #stage{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+  .fab{position:fixed;top:14px;right:14px;width:42px;height:42px;border-radius:50%;
+    border:1px solid var(--ui-line);background:var(--ui-bg);color:var(--ui-accent);
+    display:grid;place-items:center;cursor:pointer;transition:opacity .5s;z-index:5;padding:0}
+  .fab svg{width:20px;height:20px}
+  body.hide-ui .fab{opacity:0;pointer-events:none}
+
+  #panel{position:fixed;top:0;right:0;height:100%;width:min(370px,100%);background:var(--ui-bg);
+    border-left:1px solid var(--ui-line);transform:translateX(102%);transition:transform .3s ease;
+    z-index:6;overflow-y:auto;padding:18px 18px 30px;backdrop-filter:blur(8px)}
+  #panel.open{transform:none}
+  #panel header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  #panel h2{margin:0;font-size:17px;font-weight:600;color:var(--ui-accent);letter-spacing:.02em}
+  #panel h3{margin:20px 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ui-muted);font-weight:600;
+    border-bottom:1px solid var(--ui-line);padding-bottom:5px}
+  .field{margin:10px 0}
+  .field>label,.field>.lbl{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;color:var(--ui-fg)}
+  .field output{color:var(--ui-accent);font-variant-numeric:tabular-nums}
+  .field input[type=text],.field select{width:100%;background:#0b0d12;color:var(--ui-fg);border:1px solid var(--ui-line);
+    border-radius:6px;padding:7px 9px;font:inherit}
+  .field input[type=range]{width:100%;accent-color:var(--ui-accent)}
+  .field input[type=color]{width:46px;height:28px;border:1px solid var(--ui-line);border-radius:6px;background:none;padding:2px}
+  .field.inline{display:flex;align-items:center;justify-content:space-between}
+  .field.inline>label{margin:0}
+  .checks{display:flex;flex-wrap:wrap;gap:6px}
+  .checks label{display:flex;align-items:center;gap:5px;background:#0b0d12;border:1px solid var(--ui-line);
+    border-radius:999px;padding:4px 10px 4px 7px;cursor:pointer}
+  .checks input{accent-color:var(--ui-accent);margin:0}
+  .btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  button.b{flex:1;background:#0b0d12;color:var(--ui-fg);border:1px solid var(--ui-line);border-radius:6px;
+    padding:8px 10px;font:inherit;cursor:pointer}
+  button.b:hover{border-color:var(--ui-accent);color:var(--ui-accent)}
+  button.b.primary{background:var(--ui-accent);color:#1a1408;border-color:var(--ui-accent)}
+  #closePanel{background:none;border:0;color:var(--ui-muted);font-size:22px;cursor:pointer;line-height:1}
+  .status{color:var(--ui-muted);margin:12px 0 0;word-break:break-word}
+  .keys{color:var(--ui-muted);margin-top:14px;font-size:12px}
+  #share{margin-top:16px;border:1px solid var(--ui-line);border-radius:10px;padding:10px 12px;background:#0b0d12}
+  #share .lbl{display:flex;justify-content:space-between;align-items:baseline;gap:8px;color:var(--ui-fg);margin-bottom:6px}
+  #share .lbl small{color:var(--ui-muted)}
+  #shareLink{display:block;color:var(--ui-accent);font:11px/1.45 ui-monospace,monospace;word-break:break-all;
+    max-height:7.5em;overflow-y:auto;text-decoration:none}
+  #shareLink:hover{text-decoration:underline}
+  #share .btns{margin-top:8px}
+  #share button.b{padding:5px 10px}
+  kbd{background:#0b0d12;border:1px solid var(--ui-line);border-radius:4px;padding:0 5px;font:11px ui-monospace,monospace;color:var(--ui-fg)}
+
+  #notice{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100% - 32px));
+    background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:12px;padding:22px 24px;z-index:4;text-align:left}
+  #notice[hidden]{display:none}
+  #notice h3{margin:0 0 8px;color:var(--ui-accent);font-size:17px;font-weight:600}
+  #notice p{margin:8px 0;color:var(--ui-fg)}
+  #notice code{background:#0b0d12;border:1px solid var(--ui-line);border-radius:4px;padding:1px 5px;font:12px ui-monospace,monospace}
+
+  #caption{position:fixed;left:0;right:0;bottom:18px;text-align:center;pointer-events:none;z-index:3;
+    font:italic 15px Georgia,"Times New Roman",serif;letter-spacing:.04em;opacity:0;transition:opacity .8s;
+    text-shadow:0 1px 6px rgba(0,0,0,.9)}
+  #caption.show{opacity:.85}
+  #paused{position:fixed;left:16px;top:14px;z-index:3;color:var(--ui-accent);font-size:12px;letter-spacing:.2em;
+    text-transform:uppercase;opacity:0;transition:opacity .3s;pointer-events:none}
+  body.paused #paused{opacity:.8}
+  #drop{position:fixed;inset:12px;border:2px dashed var(--ui-accent);border-radius:16px;z-index:7;display:none;
+    align-items:center;justify-content:center;font-size:18px;color:var(--ui-accent);background:rgba(0,0,0,.4)}
+  body.dragging #drop{display:flex}
+  #hint{position:fixed;left:16px;bottom:16px;z-index:5;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    max-width:calc(100% - 32px);background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:10px;padding:8px 10px 8px 14px;
+    opacity:0;transition:opacity .5s}
+  #hint[hidden]{display:none}
+  #hint.show{opacity:1}
+  #hint button.b{flex:none;padding:5px 10px}
+  /* low power mode: the panel's background blur re-filters the moving canvas every frame */
+  body.low-power #panel{backdrop-filter:none}
+</style>
+</head>
+<body class="hide-ui">
+<canvas id="stage"></canvas>
+
+<button class="fab" id="gear" title="Settings (S)" aria-label="Settings">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+  </svg>
+</button>
+
+<aside id="panel" aria-label="Settings">
+  <header><h2>Dragon Gallery</h2><button id="closePanel" title="Close (Esc)">&times;</button></header>
+  <div id="fields"></div>
+  <div class="btns">
+    <button class="b primary" id="btnReload">Reload folder</button>
+    <button class="b" id="btnPick">Pick folder…</button>
+  </div>
+  <div class="btns">
+    <button class="b" id="btnFiles">Pick images…</button>
+    <button class="b" id="btnReset">Reset defaults</button>
+  </div>
+  <p class="status" id="status"></p>
+  <div class="keys">
+    <kbd>Space</kbd> pause &nbsp; <kbd>←</kbd>/<kbd>→</kbd> previous / next &nbsp; <kbd>F</kbd> fullscreen &nbsp; <kbd>S</kbd> settings &nbsp; <kbd>L</kbd> low power mode<br><br>
+    Settings are saved in this browser. Any setting can also be passed in the URL, e.g.
+    <code>?imageDir=photos&amp;order=alphabetical&amp;interval=8</code> or
+    <code>?chineseCount=2&amp;europeanCount=2&amp;keeper=european</code>
+  </div>
+  <div id="share">
+    <div class="lbl"><span>Link with these settings</span><small>updates as you change them</small></div>
+    <a id="shareLink" href="#" target="_blank" rel="noopener"></a>
+    <div class="btns">
+      <button class="b" id="btnCopyLink">Copy link</button>
+      <button class="b" id="btnOpenLink">Open in new tab</button>
+    </div>
+  </div>
+</aside>
+
+<div id="notice" hidden>
+  <h3>No images found</h3>
+  <p id="noticeText"></p>
+  <p>Pick the folder here, or serve this directory with any local web server, e.g. run <code>python -m http.server</code> next to this file and open <code>http://localhost:8000/</code>.</p>
+  <div class="btns">
+    <button class="b primary" id="nPick">Choose folder…</button>
+    <button class="b" id="nFiles">Choose images…</button>
+    <button class="b" id="nResume" hidden></button>
+  </div>
+</div>
+
+<div id="caption"></div>
+<div id="paused">Paused</div>
+<div id="drop">Drop images or a folder</div>
+<div id="hint" hidden>Running slowly? Try low power mode.
+  <button class="b primary" id="hintOn">Turn on</button><button class="b" id="hintNo">No thanks</button></div>
+<input type="file" id="dirInput" webkitdirectory multiple hidden>
+<input type="file" id="filesInput" accept="image/*" multiple hidden>
+
+<script>
+'use strict';
+/* =====================================================================
+   CONFIG – edit these defaults directly, use the in-page settings panel
+   (gear icon / "S" key), or pass any key as a URL parameter.
+   ===================================================================== */
+const DEFAULTS = {
+  imageDir: 'example_images',  // folder with images, relative to this file
+  images: [],                  // optional explicit file list (names inside imageDir); empty = auto-discover
+  order: 'random',             // 'random' | 'alphabetical' | 'reverse'
+  interval: 10,                // seconds between transitions
+  maxImages: 4,                // how many images share the screen at once (1–4)
+  animationSpeed: 1,           // global time scale for all animation
+  dragonSpeed: 1,              // how fast the dragon flies
+  dragonSize: 1,               // dragon length relative to the screen
+  chineseCount: 1,             // serpentine Chinese dragons on screen (0–4)
+  europeanCount: 0,            // winged, four-legged European dragons on screen (0–4)
+  keeper: 'chinese',           // which kind changes the images: 'chinese' | 'european' (extra dragons only play around)
+  autoSwitch: 0,               // after this many image changes the other kind of dragon takes over (0 = never)
+  imageSize: 0.72,            // max share of the screen the image(s) take
+  showFrame: true,             // hand-drawn frame around the image
+  showCaption: false,          // show file name under the image
+  lineColor: '#f2d8a2',
+  background: '#0d0f14',
+  lineWidth: 2,
+  sketchiness: 1,              // hand-drawn wobble of the lines (0 = clean)
+  bodyFill: 0.35,              // opacity of the body tint (0 = pure outline)
+  trail: 3,                    // seconds the ink trail of the tail stays (0 = off)
+  exits:   ['push', 'drag', 'coil', 'gulp', 'toss'],         // how the old image leaves
+  entries: ['carry', 'sketch', 'unfurl', 'fling', 'pop'],    // how the new image arrives
+  idles:   ['orbit', 'boop', 'perch', 'wander', 'weave', 'loop', 'chase'], // idle play
+  // the same three choices for the European dragon
+  euExits:   ['snatch', 'burn', 'gust', 'topple'],
+  euEntries: ['deliver', 'forge', 'unveil', 'drop'],
+  euIdles:   ['soar', 'perch', 'stroll', 'inspect', 'roar', 'weave', 'rings', 'dive'],
+  // dragons playing together (needs 2+ dragons on screen)
+  duetChance: 0.35,            // chance that a dragon at play invites another one to a game (0 = never)
+  duets: ['chase', 'twirl', 'boop', 'duel', 'scare', 'coil', 'parade', 'hoop'],
+  lowPower: false,             // low power mode for slower PCs / laptops: 1x resolution, 30 fps, lighter effects
+};
+// options that existed before the settings remembered which ones they had seen (so newer ones get switched on)
+const KNOWN_V1 = { exits: ['push', 'drag', 'coil'], entries: ['carry', 'sketch', 'unfurl'], idles: ['orbit', 'boop', 'perch', 'wander', 'weave'],
+  euExits: ['snatch', 'burn', 'gust'], euEntries: ['deliver', 'forge', 'unveil'], euIdles: ['soar', 'perch', 'stroll', 'inspect', 'roar', 'weave'],
+  duets: ['chase', 'twirl', 'boop', 'duel', 'scare', 'coil'] };
+const STORE_KEY = 'dragonGallery.settings.v1';
+
+/* ---------------------------- helpers ---------------------------- */
+const TAU = Math.PI * 2;
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const smooth = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+const ease = t => { t = clamp(t, 0, 1); return t < .5 ? 4 * t * t * t : 1 - Math.pow(2 - 2 * t, 3) / 2; };
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const wrap = a => { while (a > Math.PI) a -= TAU; while (a < -Math.PI) a += TAU; return a; };
+const hash = n => { const s = Math.sin(n) * 43758.5453; return s - Math.floor(s); };
+const rot = (x, y, a) => { const c = Math.cos(a), s = Math.sin(a); return [x * c - y * s, x * s + y * c]; };
+const norm = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
+function pickW(items, weights) {
+  let t = weights.reduce((a, b) => a + b, 0) * Math.random();
+  for (let i = 0; i < items.length; i++) { t -= weights[i]; if (t <= 0) return items[i]; }
+  return items[items.length - 1];
+}
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function hexRgb(h) {
+  h = String(h || '').replace('#', '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const n = parseInt(h, 16) || 0; return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+const RGBA_CACHE = new Map(); // the same few colours are built many times per frame: build each string once
+const rgba = (h, a) => {
+  const key = h + '|' + a; let s = RGBA_CACHE.get(key); if (s) return s;
+  const [r, g, b] = hexRgb(h); s = `rgba(${r},${g},${b},${a})`;
+  if (RGBA_CACHE.size > 256) RGBA_CACHE.clear();
+  RGBA_CACHE.set(key, s); return s;
+};
+const insideRect = (p, cx, cy, w, h) => Math.abs(p.x - cx) < w / 2 && Math.abs(p.y - cy) < h / 2;
+
+function curve(p, pts) { // smooth open curve through points
+  const n = pts.length; if (n < 2) return;
+  p.moveTo(pts[0][0], pts[0][1]);
+  if (n === 2) { p.lineTo(pts[1][0], pts[1][1]); return; }
+  for (let i = 1; i < n - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    p.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+  }
+  p.lineTo(pts[n - 1][0], pts[n - 1][1]);
+}
+function poly(p, pts) { p.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) p.lineTo(pts[i][0], pts[i][1]); }
+function fillPoly(p, pts) { // closed fill polygon, always wound the same way: overlapping pieces of one fill path must never cancel out (nonzero rule)
+  let a = 0; for (let i = 0, n = pts.length; i < n; i++) { const P = pts[i], Q = pts[(i + 1) % n]; a += P[0] * Q[1] - Q[0] * P[1]; }
+  poly(p, a > 0 ? pts.slice().reverse() : pts); p.closePath();
+}
+
+// rounded-rectangle path, parametrised by arc length, clockwise from top-left
+function rrPath(cx, cy, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  const x0 = cx - w / 2, y0 = cy - h / 2, x1 = cx + w / 2, y1 = cy + h / 2, sw = w - 2 * r, sh = h - 2 * r, q = Math.PI * r / 2;
+  const segs = [
+    { L: 1, x: x0 + r, y: y0, dx: 1, dy: 0, len: sw }, { L: 0, x: x1 - r, y: y0 + r, a: -Math.PI / 2, len: q },
+    { L: 1, x: x1, y: y0 + r, dx: 0, dy: 1, len: sh }, { L: 0, x: x1 - r, y: y1 - r, a: 0, len: q },
+    { L: 1, x: x1 - r, y: y1, dx: -1, dy: 0, len: sw }, { L: 0, x: x0 + r, y: y1 - r, a: Math.PI / 2, len: q },
+    { L: 1, x: x0, y: y1 - r, dx: 0, dy: -1, len: sh }, { L: 0, x: x0 + r, y: y0 + r, a: Math.PI, len: q },
+  ];
+  const len = 2 * sw + 2 * sh + 4 * q, breaks = [];
+  let acc = 0; for (const s of segs) { breaks.push(acc); acc += s.len; }
+  const fn = s => {
+    s = ((s % len) + len) % len;
+    for (const g of segs) {
+      if (s <= g.len) {
+        if (g.L) return [g.x + g.dx * s, g.y + g.dy * s];
+        const an = g.a + (r > 0 ? s / r : 0); return [g.x + Math.cos(an) * r, g.y + Math.sin(an) * r];
+      }
+      s -= g.len;
+    }
+    return [x0 + r, y0];
+  };
+  return { fn, len, breaks };
+}
+function partialPath(p, rr, lo, hi) { // polyline of a sharp rr between params lo..hi
+  const a = rr.fn(lo); p.moveTo(a[0], a[1]);
+  for (let cyc = Math.floor(lo / rr.len) * rr.len; cyc < hi; cyc += rr.len)
+    for (const b of rr.breaks) { const s = cyc + b; if (s > lo && s < hi) { const q = rr.fn(s); p.lineTo(q[0], q[1]); } }
+  const e = rr.fn(hi); p.lineTo(e[0], e[1]);
+}
+function nearestParam(rr, x, y) {
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < 120; i++) { const s = rr.len * i / 120, p = rr.fn(s), d = (p[0] - x) ** 2 + (p[1] - y) ** 2; if (d < bd) { bd = d; best = s; } }
+  return best;
+}
+function glow(ctx, x, y, r, col) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, rgba(col, .95)); g.addColorStop(.2, rgba(col, .4)); g.addColorStop(1, rgba(col, 0));
+  ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+}
+
+/* ---------------------------- config ---------------------------- */
+function loadConfig() {
+  const c = JSON.parse(JSON.stringify(DEFAULTS));
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); for (const k in s) if (k in DEFAULTS) c[k] = s[k];
+    for (const k in DEFAULTS) if (Array.isArray(DEFAULTS[k]) && k !== 'images' && Array.isArray(s[k])) { // switch on options added since the last save
+      const seen = (s._known && s._known[k]) || KNOWN_V1[k] || [];
+      for (const v of DEFAULTS[k]) if (!seen.includes(v) && !c[k].includes(v)) c[k].push(v);
+    }
+    if ('dragonCount' in s && !('chineseCount' in s)) c.chineseCount = s.dragonCount; // older single "Dragons" slider
+  } catch (e) {}
+  try {
+    for (const [k0, v] of new URLSearchParams(location.search)) {
+      const k = k0 === 'dir' ? 'imageDir' : k0; if (!(k in DEFAULTS)) continue;
+      const d = DEFAULTS[k];
+      c[k] = Array.isArray(d) ? v.split(',').map(s => s.trim()).filter(Boolean)
+        : typeof d === 'number' ? (isNaN(parseFloat(v)) ? d : parseFloat(v))
+        : typeof d === 'boolean' ? !/^(0|false|no|off)$/i.test(v) : v;
+    }
+  } catch (e) {}
+  return c;
+}
+function saveConfig() {
+  const known = {}; for (const k in DEFAULTS) if (Array.isArray(DEFAULTS[k]) && k !== 'images') known[k] = DEFAULTS[k];
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ ...cfg, _known: known })); } catch (e) {}
+  updateShareLink();
+}
+function settingsUrl() { // this page's address with every current setting as a URL parameter (read back by loadConfig)
+  const q = new URLSearchParams();
+  for (const k in DEFAULTS) {
+    if (k === 'images' && !cfg.images.length) continue;
+    q.set(k, Array.isArray(cfg[k]) ? cfg[k].join(',') : String(cfg[k]));
+  }
+  const u = new URL(location.href); u.search = q.toString(); u.hash = ''; return u.href;
+}
+function updateShareLink() {
+  const a = document.getElementById('shareLink'); if (!a) return;
+  const url = settingsUrl(); a.href = url; a.textContent = url;
+}
+let cfg = loadConfig();
+
+/* ---------------------------- state ---------------------------- */
+const cv = document.getElementById('stage'), ctx = cv.getContext('2d');
+const G = { W: 0, H: 0, dpr: 1, t: 0, rt: 0, dt: 0, last: 0, paused: false, skip: 0, changes: 0,
+  cards: [], dragons: [], runners: [], fx: [], parts: [], shown: [], arriving: null, layout: null, captionName: null, bg: null };
+
+/* ---------------------------- image library ---------------------------- */
+const IMG_RE = /\.(jpe?g|png|gif|webp|avif|bmp|svg)$/i;
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+const Lib = {
+  items: [], order: [], pos: -1, source: '',
+  set(items, source) { this.items = items; this.source = source; this.rebuild(true); },
+  rebuild(reset) {
+    const cur = this.order[this.pos], arr = this.items.slice();
+    if (cfg.order === 'random') shuffle(arr);
+    else { arr.sort((a, b) => collator.compare(a.name, b.name)); if (cfg.order === 'reverse') arr.reverse(); }
+    this.order = arr; this.pos = reset ? -1 : arr.indexOf(cur);
+  },
+  next() {
+    const o = this.order; if (!o.length) return null;
+    if (++this.pos >= o.length) {
+      const last = o[o.length - 1];
+      if (cfg.order === 'random') { shuffle(o); if (o.length > 1 && o[0] === last) [o[0], o[1]] = [o[1], o[0]]; }
+      this.pos = 0;
+    }
+    return o[this.pos];
+  },
+  prev() { const o = this.order; if (!o.length) return null; this.pos = (this.pos - 1 + o.length) % o.length; return o[this.pos]; },
+  nextFresh(skip) { // next image that is not already on screen
+    const o = this.order; if (!o.length) return null;
+    for (let k = 0; k < o.length; k++) { const it = this.next(); if (!skip.has(it.url)) return it; }
+    return o[this.pos];
+  },
+  back(k) { // step back one: with k images on screen, the one before the oldest returns
+    const o = this.order, L = o.length; if (!L) return null;
+    this.pos = (this.pos - 1 + L) % L; return o[(((this.pos - k + 1) % L) + L) % L];
+  },
+  peek() { const o = this.order; return o.length ? o[(this.pos + 1) % o.length] : null; },
+};
+
+function itemsFromList(list, base) {
+  const out = [], seen = new Set();
+  for (const e of list) {
+    const ref = typeof e === 'string' ? e : (e && (e.url || e.src || e.file || e.name));
+    if (!ref) continue;
+    const u = new URL(ref, base);
+    if (!IMG_RE.test(u.pathname) || seen.has(u.href)) continue;
+    seen.add(u.href);
+    out.push({ name: decodeURIComponent(u.pathname.split('/').pop()), url: u.href });
+  }
+  return out;
+}
+async function discover(dir) {
+  dir = String(dir || '.').replace(/\\/g, '/').replace(/\/+$/, '') || '.';
+  const base = new URL(dir + '/', location.href);
+  if (cfg.images && cfg.images.length) return { items: itemsFromList(cfg.images, base), how: 'config list' };
+  // 1) directory listing (python http.server, npx serve, http-server, Live Server, nginx/apache autoindex…)
+  try {
+    const r = await fetch(base.href, { cache: 'no-store' });
+    if (r.ok) {
+      const txt = await r.text();
+      let list = [];
+      if (/^\s*[\[{]/.test(txt)) { const j = JSON.parse(txt); list = Array.isArray(j) ? j : (j.images || j.files || []); }
+      else if (/^\s*300:/m.test(txt)) { list = [...txt.matchAll(/^201: (\S+)/gm)].map(m => decodeURIComponent(m[1])); }
+      else {
+        const doc = new DOMParser().parseFromString(txt, 'text/html');
+        list = [...doc.querySelectorAll('a[href]')].map(a => a.getAttribute('href'))
+          .filter(h => { try { return new URL(h, base).href.startsWith(base.href); } catch (e) { return false; } });
+      }
+      const items = itemsFromList(list, base);
+      if (items.length) return { items, how: 'directory listing' };
+    }
+  } catch (e) {}
+  // 2) optional manifest file inside the folder
+  for (const f of ['images.json', 'index.json', 'list.json']) {
+    try {
+      const r = await fetch(new URL(f, base), { cache: 'no-store' });
+      if (r.ok) { const j = await r.json(); const items = itemsFromList(Array.isArray(j) ? j : (j.images || j.files || []), base); if (items.length) return { items, how: f }; }
+    } catch (e) {}
+  }
+  return { items: [], how: '' };
+}
+
+const idb = {
+  open() { return new Promise((res, rej) => { const r = indexedDB.open('dragon-gallery', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  async get(k) { const db = await this.open(); return new Promise((res, rej) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
+  async set(k, v) { const db = await this.open(); return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); },
+};
+let objectUrls = [];
+function filesToItems(files) {
+  objectUrls.forEach(u => URL.revokeObjectURL(u)); objectUrls = [];
+  return [...files].filter(f => IMG_RE.test(f.name) || (f.type || '').startsWith('image/')).map(f => {
+    const url = URL.createObjectURL(f); objectUrls.push(url);
+    return { name: f.webkitRelativePath || f.name, url };
+  });
+}
+async function loadFromHandle(h) {
+  const files = [];
+  for await (const e of h.values()) if (e.kind === 'file' && IMG_RE.test(e.name)) files.push(await e.getFile());
+  setLibrary(filesToItems(files), `picked folder “${h.name}”`);
+}
+async function pickFolder() {
+  if (window.showDirectoryPicker) {
+    try {
+      const h = await window.showDirectoryPicker({ id: 'dragon-gallery', mode: 'read' });
+      try { await idb.set('dir', h); } catch (e) {}
+      await loadFromHandle(h); return;
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  document.getElementById('dirInput').click();
+}
+function setLibrary(items, source) {
+  if (!items.length) { setStatus(`No images in ${source}.`); return; }
+  Lib.set(items, source);
+  setStatus(`${items.length} image${items.length > 1 ? 's' : ''} · ${source}`);
+  document.getElementById('notice').hidden = true;
+  if (G.shown.length) G.skip = 1;
+}
+async function initLibrary() {
+  setStatus('Looking for images…');
+  const { items, how } = await discover(cfg.imageDir);
+  if (items.length) { setLibrary(items, `${cfg.imageDir}/ (${how})`); return; }
+  let handle = null;
+  try { handle = await idb.get('dir'); } catch (e) {}
+  if (handle && handle.queryPermission) {
+    try { if ((await handle.queryPermission({ mode: 'read' })) === 'granted') { await loadFromHandle(handle); return; } } catch (e) {}
+  }
+  showNotice(handle);
+}
+function showNotice(handle) {
+  const local = location.protocol === 'file:';
+  document.getElementById('noticeText').innerHTML =
+    `Couldn't list the folder <code>${String(cfg.imageDir).replace(/[<&>]/g, '')}</code>.` +
+    (local ? ' Browsers don\'t let a page opened straight from disk read a folder\'s contents on its own.' : ' The server didn\'t return a directory listing or an <code>images.json</code> manifest.');
+  const rb = document.getElementById('nResume');
+  if (handle) {
+    rb.hidden = false; rb.textContent = `Reopen “${handle.name}”`;
+    rb.onclick = async () => { try { if ((await handle.requestPermission({ mode: 'read' })) === 'granted') await loadFromHandle(handle); } catch (e) {} };
+  } else rb.hidden = true;
+  document.getElementById('notice').hidden = false;
+  setStatus('No images loaded.');
+}
+
+function loadImage(url, ms = 20000) { // give up on a request that never finishes (or the dragon would wait for it forever)
+  return new Promise((res, rej) => {
+    const im = new Image(), done = () => { clearTimeout(t); im.onload = im.onerror = null; };
+    const t = setTimeout(() => { done(); im.src = ''; rej(new Error('Timed out loading ' + url)); }, ms);
+    im.onload = () => { done(); res(im); }; im.onerror = () => { done(); rej(new Error('Could not load ' + url)); };
+    im.src = url;
+  });
+}
+async function prepare(item) {
+  const im = await loadImage(item.url);
+  try { await Promise.race([im.decode(), new Promise(r => setTimeout(r, 8000))]); } catch (e) {}
+  const iw = im.naturalWidth || im.width || 800, ih = im.naturalHeight || im.height || 600;
+  const maxPx = Math.min(3200, Math.max(G.W, G.H) * G.dpr * Math.max(cfg.imageSize, .6));
+  const sc = Math.min(1, maxPx / Math.max(iw, ih));
+  let src = im;
+  if (sc < .9) { // downscale once so drawing every frame is cheap
+    const c = document.createElement('canvas'); c.width = Math.round(iw * sc); c.height = Math.round(ih * sc);
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height); src = c;
+  }
+  return { src, iw, ih, name: item.name, url: item.url };
+}
+
+/* ---------------------------- picture card ---------------------------- */
+function makeShadow(w, h) {
+  const pad = Math.round(Math.max(24, Math.min(w, h) * .09)), s = .25, c = document.createElement('canvas');
+  c.width = Math.ceil((w + pad * 2) * s); c.height = Math.ceil((h + pad * 2) * s);
+  const x = c.getContext('2d');
+  x.shadowColor = 'rgba(0,0,0,.75)'; x.shadowBlur = pad * s * .8; x.shadowOffsetX = 10000; x.shadowOffsetY = pad * s * .25;
+  x.fillStyle = '#000'; x.fillRect(pad * s - 10000, pad * s, w * s, h * s);
+  return { c, pad, w };
+}
+let cardSeq = 0;
+class Card {
+  constructor(r) {
+    Object.assign(this, { src: r.src, iw: r.iw, ih: r.ih, name: r.name, url: r.url, id: ++cardSeq, rot: 0, scale: 1, alpha: 1, vx: 0, vy: 0, vr: 0,
+      mode: 'spring', frame: 1, frameStart: 0, frameDir: 1, frameAnim: false, sketching: false, fadeIn: false, dead: false, holder: null, anchor: null, burn: null,
+      tw: null, restRot: 0, sway: 0, seed: rand(0, TAU), tiltSeed: rand(-1, 1), sizeVar: rand(.9, 1), jx: rand(-1, 1), jy: rand(-1, 1) });
+    this.place({ x: G.W / 2, y: G.H / 2, fit: Math.min(G.W * cfg.imageSize / this.iw, G.H * cfg.imageSize / this.ih), rot: 0, sway: 0 });
+    this.x = this.hx; this.y = this.hy;
+  }
+  resize() { this.w = this.iw * this.fit; this.h = this.ih * this.fit; this.fm = Math.max(8, Math.min(this.w, this.h) * .02); }
+  place(s) { // jump straight to a slot
+    this.tw = null; this.hx = s.x; this.hy = s.y; this.fit = s.fit; this.restRot = s.rot; this.sway = s.sway;
+    this.resize(); this.shadow = makeShadow(this.w, this.h);
+  }
+  moveTo(s, delay = 0, dur = 1.6, spin = 0) { // glide (position, size, tilt) to a new slot
+    this.tw = { a: { x: this.hx, y: this.hy, fit: this.fit, rot: this.restRot, sway: this.sway }, b: s, t0: G.t + delay, dur, spin };
+    this.shadow = makeShadow(this.iw * s.fit, this.ih * s.fit);
+  }
+  topCenter() { const l = this.h * this.scale / 2; return { x: this.x + Math.sin(this.rot) * l, y: this.y - Math.cos(this.rot) * l }; }
+  attach(d, anchor) { // hang by the top edge from the dragon's jaws (or any anchor point, e.g. talons)
+    this.anchor = anchor || (() => d.mouth());
+    const tc = this.topCenter(), m = this.anchor();
+    this.mode = 'hang'; this.holder = d; this.pox = tc.x - m.x; this.poy = tc.y - m.y; this.pp = null; this.rot = wrap(this.rot);
+  }
+  release() { this.mode = 'spring'; this.holder = null; this.anchor = null; this.pp = null; this.rot = wrap(this.rot); }
+  // burning away (or being revealed by fire): a ragged front sweeps across from the side `burn.dir` points to
+  burnGeo() {
+    const b = this.burn, [dx, dy] = b.dir, px = -dy, py = dx, m = this.fm * 1.6, hw = this.w / 2 + m, hh = this.h / 2 + m;
+    const R = Math.abs(dx) * hw + Math.abs(dy) * hh, Q = Math.abs(px) * hw + Math.abs(py) * hh, amp = Math.min(this.w, this.h) * .05;
+    const wob = q => (Math.sin(q * 40 / Q + b.seed + G.t * 2) * .45 + Math.sin(q * 97 / Q - b.seed + G.t * 3.3) * .25 +
+      (hash(Math.round(q / 7) + b.seed * 9) - .5) * .5) * amp;
+    return { dx, dy, px, py, R, Q, hw, hh, wob, front: R - b.p * 2 * R };
+  }
+  frontLocal(g, q) { const f = g.front + g.wob(q); return [g.dx * f + g.px * q, g.dy * f + g.py * q]; }
+  frontPoint(q) { // world position of the burn front, q in -1..1 across the picture
+    const g = this.burnGeo(), [lx, ly] = this.frontLocal(g, q * g.Q), [rx, ry] = rot(lx * this.scale, ly * this.scale, this.rot);
+    return { x: this.x + rx, y: this.y + ry, inside: Math.abs(lx) < this.w / 2 + this.fm && Math.abs(ly) < this.h / 2 + this.fm };
+  }
+  frontPath(g, p) { for (let k = 0; k <= 28; k++) { const [x, y] = this.frontLocal(g, -g.Q + 2 * g.Q * k / 28); k ? p.lineTo(x, y) : p.moveTo(x, y); } return p; }
+  burnClip(g) {
+    const p = this.frontPath(g, new Path2D()), E = 4 * Math.max(g.R, g.Q) + 200, sd = this.burn.rev ? 1 : -1;
+    p.lineTo(g.dx * g.front + g.px * E, g.dy * g.front + g.py * E);
+    p.lineTo(g.dx * sd * E + g.px * E, g.dy * sd * E + g.py * E);
+    p.lineTo(g.dx * sd * E - g.px * E, g.dy * sd * E - g.py * E);
+    p.lineTo(g.dx * g.front - g.px * E, g.dy * g.front - g.py * E);
+    p.closePath(); return p;
+  }
+  burnEdge(ctx, g) { // charred, glowing edge
+    ctx.save(); ctx.beginPath(); ctx.rect(-g.hw, -g.hh, g.hw * 2, g.hh * 2); ctx.clip();
+    const p = this.frontPath(g, new Path2D()), lw = cfg.lineWidth;
+    ctx.globalAlpha = 1; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = rgba(cfg.background, .85); ctx.lineWidth = lw * 4 + 7; ctx.stroke(p);
+    ctx.strokeStyle = cfg.lineColor; ctx.lineWidth = lw * 1.2; ctx.stroke(p);
+    ctx.globalAlpha = .45; ctx.lineWidth = Math.max(.6, lw * .5); ctx.translate(g.dx * lw * 3, g.dy * lw * 3); ctx.stroke(p);
+    for (let k = 0; k <= 28; k += 3) {
+      const [x, y] = this.frontLocal(g, -g.Q + 2 * g.Q * k / 28);
+      ctx.globalAlpha = .3 + .25 * Math.sin(G.t * 9 + k * 1.7); glow(ctx, x, y, this.fm * 2.4, cfg.lineColor);
+    }
+    ctx.restore();
+  }
+  offscreen() { const R = .5 * Math.hypot(this.w, this.h) * this.scale + 20; return this.x + R < 0 || this.x - R > G.W || this.y + R < 0 || this.y - R > G.H; }
+  update(dt) {
+    if (this.fadeIn) { this.alpha = Math.min(1, this.alpha + dt * 1.2); if (this.alpha >= 1) this.fadeIn = false; }
+    if (this.frameAnim) { this.frame = Math.min(1, this.frame + dt / 1.3); if (this.frame >= 1) this.frameAnim = false; }
+    if (this.tw) { // the home slot glides; the card follows it on a spring, so it lags and settles organically
+      const tw = this.tw, a = tw.a, b = tw.b, p = ease((G.t - tw.t0) / tw.dur);
+      if (tw.spin && G.t >= tw.t0) { this.vr += tw.spin; tw.spin = 0; }
+      this.hx = lerp(a.x, b.x, p); this.hy = lerp(a.y, b.y, p); this.fit = lerp(a.fit, b.fit, p);
+      this.restRot = lerp(a.rot, b.rot, p); this.sway = lerp(a.sway, b.sway, p); this.resize();
+      if (G.t - tw.t0 >= tw.dur) this.tw = null;
+    }
+    if (this.mode === 'spring') {
+      const k = 55, c = 2 * Math.sqrt(k) * .42, kr = 45, cr = 2 * Math.sqrt(kr) * .45, sw = this.sway, t = G.t, sd = this.seed;
+      const tx = this.hx + sw * Math.sin(t * .53 + sd), ty = this.hy + sw * .8 * Math.sin(t * .41 + sd * 1.7);
+      const tr = this.restRot + (sw ? .008 * Math.sin(t * .47 + sd * 2.3) : 0);
+      this.vx += ((tx - this.x) * k - this.vx * c) * dt; this.vy += ((ty - this.y) * k - this.vy * c) * dt;
+      this.x += this.vx * dt; this.y += this.vy * dt;
+      this.vr += (-(this.rot - tr) * kr - this.vr * cr) * dt; this.rot += this.vr * dt;
+      this.scale += (1 - this.scale) * Math.min(1, dt * 5);
+    } else if (this.mode === 'fly') {
+      this.x += this.vx * dt; this.y += this.vy * dt; const f = Math.exp(-.15 * dt); this.vx *= f; this.vy *= f;
+      this.rot += this.vr * dt; this.vr *= Math.exp(-.6 * dt);
+    } else if (this.mode === 'hang' && this.holder && dt > 0) {
+      // pendulum hanging from the dragon's mouth by its top edge
+      const m = this.anchor(), k = Math.exp(-dt * 4); this.pox *= k; this.poy *= k;
+      const px = m.x + this.pox, py = m.y + this.poy;
+      if (!this.pp) this.pp = { x: px, y: py, vx: 0, vy: 0, ax: 0, ay: 0 };
+      const pp = this.pp, vx = (px - pp.x) / dt, vy = (py - pp.y) / dt;
+      pp.ax += ((vx - pp.vx) / dt - pp.ax) * .25; pp.ay += ((vy - pp.vy) / dt - pp.ay) * .25;
+      const am = Math.hypot(pp.ax, pp.ay); if (am > 9000) { pp.ax *= 9000 / am; pp.ay *= 9000 / am; }
+      pp.x = px; pp.y = py; pp.vx = vx; pp.vy = vy;
+      const l = Math.max(20, this.h * this.scale / 2), g = 2400, th = this.rot;
+      this.vr += ((-g * Math.sin(th) + pp.ax * Math.cos(th) + pp.ay * Math.sin(th)) / l - 2.4 * this.vr) * dt;
+      this.rot = clamp(this.rot + this.vr * dt, -1.3, 1.3);
+      const nx = px - l * Math.sin(this.rot), ny = py + l * Math.cos(this.rot);
+      this.vx = (nx - this.x) / dt; this.vy = (ny - this.y) / dt; this.x = nx; this.y = ny;
+    }
+  }
+  draw(ctx) {
+    if (this.scale <= .002) return;
+    const b = this.burn; if (b && (b.rev ? b.p <= 0 : b.p >= 1)) return;
+    ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.rot); ctx.scale(this.scale, this.scale);
+    const w = this.w, h = this.h, g = b && this.burnGeo();
+    if (g) { ctx.save(); ctx.clip(this.burnClip(g)); }
+    if (this.alpha > .002) {
+      ctx.globalAlpha = this.alpha;
+      const sh = this.shadow, sp = sh.pad * w / sh.w; ctx.drawImage(sh.c, -w / 2 - sp, -h / 2 - sp, w + sp * 2, h + sp * 2);
+      ctx.drawImage(this.src, -w / 2, -h / 2, w, h);
+    }
+    ctx.globalAlpha = this.sketching ? 1 : this.alpha;
+    if (cfg.showFrame && this.frame > 0) this.drawFrame(ctx);
+    if (g) { ctx.restore(); if (b.p > 0) this.burnEdge(ctx, g); }
+    ctx.restore();
+  }
+  drawFrame(ctx) {
+    const m = this.fm, rr = rrPath(0, 0, this.w + 2 * m, this.h + 2 * m, 0), f = this.frame;
+    let lo, hi; if (this.frameDir > 0) { lo = this.frameStart; hi = lo + f * rr.len; } else { hi = this.frameStart; lo = hi - f * rr.len; }
+    const p = new Path2D(); partialPath(p, rr, lo, hi);
+    const m2 = m + Math.max(4, m * .45), rr2 = rrPath(0, 0, this.w + 2 * m2, this.h + 2 * m2, 0), k = rr2.len / rr.len;
+    const p2 = new Path2D(); partialPath(p2, rr2, lo * k, hi * k);
+    const lw = cfg.lineWidth;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.strokeStyle = rgba(cfg.background, .5); ctx.lineWidth = lw + 3; ctx.stroke(p);
+    ctx.strokeStyle = cfg.lineColor; ctx.lineWidth = lw; ctx.stroke(p);
+    ctx.globalAlpha *= .45; ctx.lineWidth = Math.max(.6, lw * .5); ctx.stroke(p2);
+    if (f < 1) { const e = rr.fn(this.frameDir > 0 ? hi : lo); ctx.globalAlpha = 1; glow(ctx, e[0], e[1], lw * 6 + 10, cfg.lineColor); }
+  }
+}
+
+/* ---------------------------- composition (1–4 images) ---------------------------- */
+const PERMS = {};
+function perms(n) {
+  if (PERMS[n]) return PERMS[n];
+  const out = [], rec = (pre, rest) => { if (!rest.length) out.push(pre); else rest.forEach((x, i) => rec([...pre, x], rest.filter((_, j) => j !== i))); };
+  rec([], [...Array(n).keys()]); return (PERMS[n] = out);
+}
+// Every ordering x every split into rows (or columns), each laid out as a justified block that
+// fits the box. Returns cells (relative to the box) in input order plus how much of the box they cover.
+function arrangements(aspects, Bw, Bh, gap) {
+  const n = aspects.length, out = [];
+  for (const axis of n > 1 ? [0, 1] : [0]) {
+    const W = axis ? Bh : Bw, H = axis ? Bw : Bh, asp = i => axis ? 1 / aspects[i] : aspects[i];
+    for (const perm of perms(n)) for (let mask = 0; mask < 1 << (n - 1); mask++) {
+      const rows = [[perm[0]]];
+      for (let i = 1; i < n; i++) { if ((mask >> (i - 1)) & 1) rows.push([perm[i]]); else rows[rows.length - 1].push(perm[i]); }
+      const avail = H - gap * (rows.length - 1);
+      const nat = rows.map(r => (W - gap * (r.length - 1)) / r.reduce((s, i) => s + asp(i), 0));
+      if (avail <= 0 || nat.some(h => h <= 0)) continue;
+      const sum = nat.reduce((a, b) => a + b, 0), f = Math.min(1, avail / sum), cells = [];
+      let y = (H - (sum * f + gap * (rows.length - 1))) / 2, area = 0;
+      rows.forEach((r, ri) => {
+        const rh = nat[ri] * f; let x = (W - (r.reduce((s, i) => s + asp(i) * rh, 0) + gap * (r.length - 1))) / 2;
+        for (const i of r) {
+          const cw = asp(i) * rh;
+          cells[i] = axis ? { x: y, y: x, w: rh, h: cw } : { x, y, w: cw, h: rh };
+          area += cw * rh; x += cw + gap;
+        }
+        y += rh + gap;
+      });
+      out.push({ cells, rows, axis, cover: area / (W * H) });
+    }
+  }
+  return out;
+}
+// Pick a composition for `list` and send every card gliding to its slot. The newcomer jumps
+// straight to its slot (its entry animation takes it there); `stable` keeps the current arrangement.
+function compose(list, newcomer = null, stable = false) {
+  const prevKey = G.layout && G.layout.key, n = list.length;
+  if (!n) { G.layout = null; return; }
+  const multi = n > 1, frac = multi ? Math.min(.95, cfg.imageSize + .16) : cfg.imageSize;
+  const Bw = G.W * frac, Bh = G.H * frac, ox = (G.W - Bw) / 2, oy = (G.H - Bh) / 2;
+  const gap = multi ? Math.max(26, Math.min(G.W, G.H) * .055) : 0, diag = Math.hypot(G.W, G.H);
+  const cands = arrangements(list.map(c => c.iw / c.ih), Bw, Bh, gap);
+  for (const a of cands) {
+    a.key = a.axis + ':' + a.rows.map(r => r.map(i => list[i].id).join(',')).join('|');
+    let mv = 0, m = 0;
+    list.forEach((c, i) => {
+      if (c === newcomer) return; const e = a.cells[i];
+      mv += Math.hypot(ox + e.x + e.w / 2 - c.hx, oy + e.y + e.h / 2 - c.hy) / diag; m++;
+    });
+    a.score = a.cover - .12 * (m ? mv / m : 0); // fill the screen well, but don't reshuffle for nothing
+  }
+  const best = cands.reduce((a, b) => b.score > a.score ? b : a);
+  let ch = stable && cands.find(a => a.key === prevKey);
+  if (!ch) {
+    const pool = stable ? [best] : cands.filter(a => a.score >= best.score - .035);
+    ch = pickW(pool, pool.map(a => Math.exp((a.score - best.score) / .015)));
+  }
+  G.layout = { list: list.slice(), key: ch.key };
+  list.forEach((c, i) => {
+    const e = ch.cells[i], tilt = multi ? c.tiltSeed * .045 : 0, cs = Math.cos(tilt), sn = Math.abs(Math.sin(tilt));
+    let fit = Math.min(e.w / (c.iw * cs + c.ih * sn), e.h / (c.iw * sn + c.ih * cs));
+    if (multi) fit *= .93 * c.sizeVar; // room for the frame, and a little size variety
+    const bw = (c.iw * cs + c.ih * sn) * fit, bh = (c.iw * sn + c.ih * cs) * fit;
+    const s = { x: ox + e.x + e.w / 2 + c.jx * Math.max(0, e.w - bw) * .4, y: oy + e.y + e.h / 2 + c.jy * Math.max(0, e.h - bh) * .4,
+      fit, rot: tilt, sway: multi ? gap * .12 : 0 };
+    if (c === newcomer) c.place(s);
+    else c.moveTo(s, stable ? 0 : i * .12, stable ? .7 : 1.6, stable ? 0 : rand(-.5, .5));
+  });
+}
+function relayout() { // same arrangement, new geometry (resize, image area change)
+  if (!G.layout) return;
+  compose(G.layout.list.filter(c => !c.dead && (G.shown.includes(c) || c === G.arriving)), null, true);
+}
+const capacity = () => clamp(Math.min(Math.round(cfg.maxImages) || 1, Lib.order.length || 1), 1, 4);
+const pickCard = () => { const ok = G.shown.filter(c => c.mode === 'spring'); return ok.length ? pick(ok) : null; };
+
+/* ---------------------------- the dragon ---------------------------- */
+function profile(t) { // body half-width along the spine (0 = neck, 1 = tail tip)
+  if (t < .07) return lerp(.6, .85, t / .07);
+  if (t < .3) return lerp(.85, 1, smooth((t - .07) / .23));
+  return lerp(1, .07, Math.pow((t - .3) / .7, 1.15));
+}
+const LEGS = [
+  { t: .165, front: true, far: true, ph: Math.PI }, { t: .15, front: true, far: false, ph: 0 },
+  { t: .525, front: false, far: true, ph: Math.PI + 2 }, { t: .51, front: false, far: false, ph: 2 },
+];
+
+class Dragon {
+  constructor(main, N = 64) {
+    this.main = main; this.sizeMul = this.sizeT = main ? 1 : rand(.55, .75);
+    this.kind = 'chinese'; this.wig = .32; this.turnK = .09;
+    this.N = N; this.step = 3; this.hist = []; this.S = [];
+    for (let i = 0; i <= this.N; i++) this.S.push({ x: 0, y: 0, dx: 1, dy: 0, ux: 0, uy: -1, w: 0, f: 1, z: 1 });
+    Object.assign(this, { x: 0, y: 0, a: 0, heading: 0, ha: 0, speed: 0, flip: 1, flipT: 1, z: 1, jaw: .05, jawT: .05, jawHold: 0,
+      reveal: 1, phase: rand(0, 6), dist: 0, wiggleMul: 1, speedMul: 1, turnMul: 1, blink: 0, nextBlink: rand(2, 5),
+      seed: rand(0, 1000), nVis: 0, leaving: false, removed: false, lastSpin: 1, whReset: true });
+    this.target = { x: 0, y: 0 }; this.wh = [[], []]; this.trail = [];
+    this.rescale();
+  }
+  rescale() {
+    const m = Math.min(G.W, G.H);
+    this.L = m * 1.25 * cfg.dragonSize * this.sizeMul; this.u = this.L * .024; this.seg = this.L / this.N;
+    this.base = m * .36 * cfg.dragonSpeed * (this.main ? 1 : .85);
+  }
+  place(x, y, a, curl = 0) {
+    this.x = x; this.y = y; this.a = this.heading = this.ha = a;
+    this.flip = this.flipT = Math.cos(a) >= 0 ? 1 : -1;
+    const n = Math.ceil(this.L * 1.4 / this.step) + 4, pts = [];
+    let px = x, py = y;
+    for (let k = 0; k < n; k++) {
+      pts.push({ x: px, y: py, f: this.flip, z: this.z });
+      const ang = a + Math.sin(k * this.step / this.L * TAU * 1.2) * curl;
+      px -= Math.cos(ang) * this.step; py -= Math.sin(ang) * this.step;
+    }
+    this.hist = pts.reverse(); this.whReset = true; this.trail.length = 0; this.computeSpine();
+  }
+  local(lx, ly) {
+    const c = Math.cos(this.ha), s = Math.sin(this.ha), u = this.u, f = this.flip;
+    return { x: this.x + (c * lx - s * ly * f) * u, y: this.y + (s * lx + c * ly * f) * u };
+  }
+  snout() { return this.local(4.55, -.1); }
+  mouth() { return this.local(3.3, .42 + this.jaw * .8); }
+
+  reset() { this.z = 1; this.wiggleMul = 1; this.jawT = .05; }
+  update(dt) {
+    if (Math.abs(this.sizeT - this.sizeMul) > 1e-3) { this.sizeMul += clamp(this.sizeT - this.sizeMul, -dt * .25, dt * .25); this.rescale(); }
+    // --- steering toward target
+    const tx = this.target.x - this.x, ty = this.target.y - this.y, dd = Math.hypot(tx, ty);
+    const diff = wrap(Math.atan2(ty, tx) - this.heading), facing = (1 + Math.cos(diff)) / 2;
+    let spd = this.base * this.speedMul * (.4 + .6 * facing);
+    const m = this.u * 3;
+    if (this.x < -m || this.x > G.W + m || this.y < -m || this.y > G.H + m) spd *= 1.7; // hurry while off-screen
+    this.speed += (spd - this.speed) * Math.min(1, dt * 2.5);
+    const near = clamp(1 - dd / (this.L * .35), 0, 1);
+    const turn = Math.max(1, this.speed / (this.L * this.turnK)) * this.turnMul * (1 + near * (1 - facing) * 2.5);
+    this.heading = wrap(this.heading + clamp(diff, -turn * dt, turn * dt));
+    const ds = this.speed * dt;
+    this.phase += ds / (this.L * .33) * TAU;
+    this.a = this.heading + Math.sin(this.phase) * this.wig * this.wiggleMul; // serpentine undulation
+    this.x += Math.cos(this.a) * ds; this.y += Math.sin(this.a) * ds; this.dist += ds;
+    this.ha += wrap(this.a - this.ha) * Math.min(1, dt * 8);
+    // --- side flip (the head rolls over when changing horizontal direction)
+    const c = Math.cos(this.heading); if (c > .25) this.flipT = 1; else if (c < -.25) this.flipT = -1;
+    this.flip += clamp(this.flipT - this.flip, -dt * 3.2, dt * 3.2);
+    // --- face
+    if (this.jawHold > 0) { this.jawHold -= dt; if (this.jawHold <= 0) this.jawT = .05; }
+    this.jaw += (this.jawT - this.jaw) * Math.min(1, dt * 8);
+    this.nextBlink -= dt; if (this.nextBlink < 0) { this.blink = .16; this.nextBlink = rand(2.5, 6); }
+    if (this.blink > 0) this.blink -= dt;
+    if (this.leaving) { this.reveal = Math.max(0, this.reveal - dt / 1.8); if (this.reveal <= 0) this.removed = true; }
+    // --- path history (body follows exactly the line drawn by the head)
+    const H = this.hist; let last = H[H.length - 1];
+    let lx = this.x - last.x, ly = this.y - last.y, dl = Math.hypot(lx, ly);
+    while (dl >= this.step) {
+      last = { x: last.x + lx / dl * this.step, y: last.y + ly / dl * this.step, f: this.flip, z: this.z }; H.push(last);
+      lx = this.x - last.x; ly = this.y - last.y; dl = Math.hypot(lx, ly);
+    }
+    const keep = Math.ceil(this.L / this.step) + 6; if (H.length > keep * 1.5) H.splice(0, H.length - keep);
+    this.computeSpine(); this.updateParts(dt); this.updateTrail();
+  }
+  updateParts(dt) { this.updateWhiskers(dt); }
+  tailTip() { return this.nVis === this.N + 1 ? this.S[this.N] : null; }
+  computeSpine() {
+    const H = this.hist, n = H.length, S = this.S, N = this.N, last = H[n - 1];
+    const d0 = Math.hypot(this.x - last.x, this.y - last.y);
+    let vis = 0;
+    for (let i = 0; i <= N; i++) {
+      const d = i * this.seg, s = S[i];
+      if (d <= d0 && d0 > 1e-6) { const t = d / d0; s.x = lerp(this.x, last.x, t); s.y = lerp(this.y, last.y, t); s.f = this.flip; s.z = this.z; }
+      else {
+        const idx = n - 1 - (d - Math.max(d0, 0)) / this.step; if (idx < 0) break;
+        const i0 = Math.floor(idx), fr = idx - i0, A = H[i0], B = H[Math.min(n - 1, i0 + 1)];
+        s.x = lerp(A.x, B.x, fr); s.y = lerp(A.y, B.y, fr); s.f = lerp(A.f, B.f, fr); s.z = fr < .5 ? A.z : B.z;
+      }
+      vis = i + 1;
+    }
+    this.nAll = vis; this.nVis = this.reveal >= 1 ? vis : Math.min(vis, Math.floor(this.reveal * (N + 1)));
+    for (let i = 0; i < vis; i++) {
+      const s = S[i]; let ax, ay;
+      if (i === 0) { ax = Math.cos(this.ha); ay = Math.sin(this.ha); }
+      else { const p = S[i - 1], q = S[Math.min(vis - 1, i + 1)]; [ax, ay] = norm(p.x - q.x, p.y - q.y); }
+      s.dx = ax; s.dy = ay; s.ux = ay; s.uy = -ax; s.w = this.u * profile(i / N);
+    }
+  }
+  updateWhiskers(dt) {
+    // Momentum-free whiskers: each node eases toward a "rest" direction trailing back from the
+    // snout and is then held at a fixed distance from the previous node. Without velocity there's
+    // nothing to build up, so they flow and lag gently but can never spin.
+    const K = 13, sl = this.u * .55;
+    const anchors = [this.local(4.25, -.3), this.local(4.05, -.06)];
+    const ca = Math.cos(this.ha), sa = Math.sin(this.ha), fl = this.flip;
+    for (let w = 0; w < 2; w++) {
+      let ch = this.wh[w]; const A = anchors[w];
+      // rest direction in head space: backwards and slightly drooping, with a slow sway
+      const droop = (w ? .7 : .35) + Math.sin(G.t * 1.3 + w * 2) * .12;
+      const [rx, ry] = norm(-ca - sa * droop * fl, -sa + ca * droop * fl);
+      if (this.whReset || ch.length !== K) {
+        ch = this.wh[w] = [];
+        for (let j = 0; j < K; j++) ch.push({ x: A.x + rx * sl * j, y: A.y + ry * sl * j });
+      }
+      ch[0].x = A.x; ch[0].y = A.y;
+      for (let j = 1; j < K; j++) {
+        const n = ch[j], p = ch[j - 1];
+        const k = Math.min(1, dt * 7 * (1 - .6 * j / K)); // stiffer near the root, lazier at the tip
+        n.x += (p.x + rx * sl - n.x) * k; n.y += (p.y + ry * sl - n.y) * k;
+        const [ux, uy] = norm(n.x - p.x, n.y - p.y); n.x = p.x + ux * sl; n.y = p.y + uy * sl;
+      }
+    }
+    this.whReset = false;
+  }
+  updateTrail() {
+    const T = this.trail;
+    const s = this.tailTip();
+    if (cfg.trail > 0 && s) {
+      const l = T[T.length - 1];
+      const dl = l ? Math.hypot(s.x - l.x, s.y - l.y) : 1e9;
+      if (dl > 4) { if (l && dl > this.L * .2) T.push({ brk: true, t: G.t }); T.push({ x: s.x, y: s.y, t: G.t }); }
+    }
+    while (T.length && G.t - T[0].t > cfg.trail) T.shift();
+  }
+
+  drawTrail(ctx) {
+    const T = this.trail; if (T.length < 2 || cfg.trail <= 0) return;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = cfg.lineColor; ctx.lineWidth = Math.max(.8, cfg.lineWidth * .7);
+    for (let i = 0; i < T.length - 1; i += 6) {
+      ctx.globalAlpha = Math.pow(clamp(1 - (G.t - T[i].t) / cfg.trail, 0, 1), 1.5) * .5;
+      ctx.beginPath(); let on = false;
+      for (let k = i; k <= Math.min(T.length - 1, i + 6); k++) {
+        const p = T[k]; if (p.brk) { on = false; continue; }
+        if (!on) { ctx.moveTo(p.x, p.y); on = true; } else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // pass -1 = parts behind the pictures, +1 = parts in front
+  draw(ctx, pass) {
+    const n = this.nVis; if (n < 2) return;
+    const S = this.S, N = this.N, u = this.u, t = G.t;
+    const main = new Path2D(), fine = new Path2D(), fill = new Path2D(), solid = new Path2D();
+    const amp = cfg.sketchiness * clamp(u / 28, .5, 1.6), boil = Math.floor(t * 7), seed = this.seed;
+    const jit = (i, k) => amp ? (hash(i * 12.9898 + k * 78.233 + boil * 3.71 + seed) - .5) * 2 * amp : 0;
+    const zp = i => ((S[i].z >= 0 ? 1 : -1) === pass);
+
+    for (let i = 0; i < n;) { // body outline, split into runs by depth
+      if (!zp(i)) { i++; continue; }
+      let j = i; while (j + 1 < n && zp(j + 1)) j++;
+      this.bodyRun(main, fine, fill, Math.max(0, i - 1), Math.min(n - 1, j + 1), jit);
+      i = j + 1;
+    }
+    for (let i = 0; i < n; i++) { // mane, spikes, belly plates, scales
+      if (!zp(i)) continue;
+      const s = S[i], sg = s.f >= 0 ? 1 : -1, af = Math.abs(s.f), ox = s.ux * sg, oy = s.uy * sg, w = s.w;
+      if (i >= 1 && i <= 9) {
+        const q = S[Math.min(n - 1, i + 2)], e = S[Math.min(n - 1, i + 5)];
+        const L2 = w * (1.3 + .45 * Math.sin(t * 3.3 + i * .9)) * af + u * .3, cl = w * 1.5 * af + u * .25, P = i % 2 ? fine : main;
+        P.moveTo(s.x + ox * w * .8 + jit(i, 5), s.y + oy * w * .8 + jit(i, 6));
+        P.quadraticCurveTo(q.x + ox * cl, q.y + oy * cl, e.x + ox * L2 + jit(i, 7), e.y + oy * L2 + jit(i, 8));
+      }
+      if (i >= 11 && i <= N - 6 && i % 2 === 1 && i + 2 < n) {
+        const q = S[i + 2], h = w * .8 * af + u * .12;
+        const ax = s.x + ox * w, ay = s.y + oy * w, bx = q.x + q.ux * sg * q.w, by = q.y + q.uy * sg * q.w;
+        main.moveTo(ax, ay);
+        main.quadraticCurveTo(lerp(ax, bx, .25) + ox * h * .75, lerp(ay, by, .25) + oy * h * .75, lerp(ax, bx, .9) + ox * h + jit(i, 9), lerp(ay, by, .9) + oy * h + jit(i, 10));
+        main.lineTo(lerp(ax, bx, .75), lerp(ay, by, .75));
+      }
+      if (i >= 3 && i <= N - 7 && af > .25) {
+        const k = 1 - .62 * af, vx = s.x - ox * w * k, vy = s.y - oy * w * k, ex = s.x - ox * w, ey = s.y - oy * w;
+        fine.moveTo(vx, vy); fine.quadraticCurveTo((vx + ex) / 2 + s.dx * w * .2, (vy + ey) / 2 + s.dy * w * .2, ex, ey);
+      }
+      if (i >= 4 && i <= N - 12 && w > 5 && af > .2) {
+        const cx = s.x + ox * w * .3 * af, cy = s.y + oy * w * .3 * af, r = w * .22;
+        fine.moveTo(cx + ox * r, cy + oy * r); fine.quadraticCurveTo(cx - s.dx * this.seg * .9, cy - s.dy * this.seg * .9, cx - ox * r, cy - oy * r);
+      }
+    }
+    this.legs(main, fine, n, zp);
+    if (n === N + 1 && zp(N)) { // flame-like tail tuft
+      const s = S[N], bx = -s.dx, by = -s.dy;
+      for (let k = -2; k <= 2; k++) {
+        const [dx, dy] = rot(bx, by, k * .33 + Math.sin(t * 3.1 + k * .9) * .2), len = u * (2.7 - Math.abs(k) * .45), nx = -dy, ny = dx;
+        const P = Math.abs(k) < 2 ? main : fine;
+        P.moveTo(s.x, s.y);
+        P.quadraticCurveTo(s.x + dx * len * .5 + nx * len * .2, s.y + dy * len * .5 + ny * len * .2, s.x + dx * len, s.y + dy * len);
+        P.quadraticCurveTo(s.x + dx * len * .45 - nx * len * .06, s.y + dy * len * .45 - ny * len * .06, s.x, s.y);
+      }
+    }
+    if (zp(0)) {
+      this.head(main, fine, solid, jit);
+      if (this.reveal > .2) this.wh.forEach((ch, w) => { // gentle travelling wave, applied only when drawing
+        const K = ch.length;
+        curve(fine, ch.map((p, j) => {
+          if (!j) return [p.x, p.y];
+          const q = ch[j - 1], [ux, uy] = norm(p.x - q.x, p.y - q.y), wv = Math.sin(t * 2.4 - j * .55 + w * 1.7) * u * .18 * (j / K);
+          return [p.x - uy * wv, p.y + ux * wv];
+        }));
+      });
+    }
+
+    const lw = cfg.lineWidth * (.6 + .4 * this.sizeMul);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (cfg.bodyFill > 0) { ctx.fillStyle = rgba(cfg.background, cfg.bodyFill); ctx.fill(fill); }
+    ctx.strokeStyle = rgba(cfg.background, .55);
+    ctx.lineWidth = lw + 3; ctx.stroke(main); ctx.lineWidth = lw * .6 + 2.5; ctx.stroke(fine);
+    ctx.strokeStyle = cfg.lineColor;
+    ctx.lineWidth = lw; ctx.stroke(main); ctx.lineWidth = Math.max(.6, lw * .6); ctx.stroke(fine);
+    if (amp > 0 && !cfg.lowPower) { // faint second "sketch" stroke
+      ctx.save(); ctx.translate(amp * .9, -amp * .6); ctx.globalAlpha = .3; ctx.lineWidth = Math.max(.5, lw * .55); ctx.stroke(main); ctx.restore();
+    }
+    ctx.fillStyle = cfg.lineColor; ctx.fill(solid);
+    if (this.reveal < 1 && zp(n - 1)) glow(ctx, S[n - 1].x, S[n - 1].y, u * 2.2, cfg.lineColor); // the pen tip
+  }
+  bodyRun(main, fine, fill, a, b, jit) {
+    const S = this.S, N = this.N, top = [], bot = [], bel = [];
+    for (let i = a; i <= b; i++) {
+      const s = S[i], w = s.w;
+      top.push([s.x + s.ux * w + jit(i, 1), s.y + s.uy * w + jit(i, 2)]);
+      bot.push([s.x - s.ux * w + jit(i, 3), s.y - s.uy * w + jit(i, 4)]);
+      if (i >= 3 && i <= N - 6) { const sg = s.f >= 0 ? 1 : -1, k = 1 - .62 * Math.abs(s.f); bel.push([s.x - s.ux * sg * w * k, s.y - s.uy * sg * w * k]); }
+    }
+    curve(main, top); curve(main, bot); if (bel.length > 1) curve(fine, bel);
+    let tip = null;
+    if (b === N) {
+      const s = S[N]; tip = [s.x - s.dx * this.seg * 1.3, s.y - s.dy * this.seg * 1.3];
+      const t1 = top[top.length - 1], b1 = bot[bot.length - 1];
+      main.moveTo(t1[0], t1[1]); main.lineTo(tip[0], tip[1]); main.lineTo(b1[0], b1[1]);
+    }
+    fill.moveTo(top[0][0], top[0][1]); for (const p of top) fill.lineTo(p[0], p[1]);
+    if (tip) fill.lineTo(tip[0], tip[1]);
+    for (let i = bot.length - 1; i >= 0; i--) fill.lineTo(bot[i][0], bot[i][1]);
+    fill.closePath();
+  }
+  legs(main, fine, n, zp) {
+    const S = this.S;
+    for (const L of LEGS) {
+      const i = Math.round(L.t * this.N); if (i >= n || !zp(i)) continue;
+      const s = S[i], sg = s.f >= 0 ? 1 : -1, vx = -s.ux * sg, vy = -s.uy * sg, fx = s.dx, fy = s.dy;
+      const ph = this.dist / (this.L * .11) + L.ph, sn = Math.sin(ph), sn2 = Math.sin(ph + .8), W = this.u * (L.far ? .78 : 1);
+      const hx = s.x + vx * s.w * .45 + fx * (L.far ? W * .4 : 0), hy = s.y + vy * s.w * .45 + fy * (L.far ? W * .4 : 0);
+      const t1 = L.front ? [-.35 + .45 * sn, 1] : [.3 + .45 * sn, 1];
+      const t2 = L.front ? [.6 + .35 * sn2, .8] : [-.75 + .35 * sn2, .7];
+      const d1 = norm(fx * t1[0] + vx * t1[1], fy * t1[0] + vy * t1[1]), d2 = norm(fx * t2[0] + vx * t2[1], fy * t2[0] + vy * t2[1]);
+      const kx = hx + d1[0] * W * 1.35, ky = hy + d1[1] * W * 1.35, ftx = kx + d2[0] * W * 1.15, fty = ky + d2[1] * W * 1.15;
+      const P = L.far ? fine : main;
+      const pts = [[hx, hy], [kx, ky], [ftx, fty]], rs = [W * .36, W * .27, W * .18], Lp = [], Rp = [];
+      for (let k = 0; k < 3; k++) {
+        const A = pts[Math.max(0, k - 1)], B = pts[Math.min(2, k + 1)], [ux, uy] = norm(B[0] - A[0], B[1] - A[1]);
+        Lp.push([pts[k][0] - uy * rs[k], pts[k][1] + ux * rs[k]]); Rp.push([pts[k][0] + uy * rs[k], pts[k][1] - ux * rs[k]]);
+      }
+      curve(P, Lp); curve(P, Rp);
+      P.moveTo(Lp[2][0], Lp[2][1]); P.quadraticCurveTo(ftx + d2[0] * rs[2] * 1.8, fty + d2[1] * rs[2] * 1.8, Rp[2][0], Rp[2][1]);
+      const [cx, cy] = norm(d2[0] + fx * .7, d2[1] + fy * .7);
+      for (let k = -1; k <= 1; k++) { // claws
+        const [ux, uy] = rot(cx, cy, k * .5);
+        P.moveTo(ftx + ux * W * .12, fty + uy * W * .12);
+        P.quadraticCurveTo(ftx + ux * W * .42 - vx * W * .12, fty + uy * W * .42 - vy * W * .12, ftx + ux * W * .62 + vx * W * .1, fty + uy * W * .62 + vy * W * .1);
+      }
+    }
+  }
+  head(main, fine, solid, jit) {
+    const hs = smooth(this.reveal * 5); if (hs <= .01) return;
+    const u = this.u * hs, ca = Math.cos(this.ha), sa = Math.sin(this.ha), fl = this.flip, X = this.x, Y = this.y, t = G.t;
+    let k = 0;
+    const T = (lx, ly) => { k++; return [X + (ca * lx - sa * ly * fl) * u + jit(500 + k, 1) * .6, Y + (sa * lx + ca * ly * fl) * u + jit(500 + k, 2) * .6]; };
+    const jc = Math.cos(this.jaw), js = Math.sin(this.jaw);
+    const J = (lx, ly) => { const x = lx - 1.4, y = ly - .35; return T(1.4 + x * jc - y * js, .35 + x * js + y * jc); };
+    const sw = Math.sin(t * 1.7) * .08;
+    // horns
+    main.moveTo(...T(1.0, -1.0)); main.quadraticCurveTo(...T(.1, -1.85), ...T(-1.7, -2.45 + sw)); main.quadraticCurveTo(...T(-.15, -1.35), ...T(1.55, -1.08));
+    fine.moveTo(...T(.55, -.88)); fine.quadraticCurveTo(...T(-.25, -1.3), ...T(-1.25, -1.55 + sw * .8)); fine.quadraticCurveTo(...T(-.3, -1.05), ...T(.95, -.96));
+    curve(fine, [T(.35, -1.45), T(.15, -1.2)]); curve(fine, [T(-.45, -1.85), T(-.55, -1.62)]);
+    // skull, upper lip, lower jaw
+    curve(main, [T(0, -.6), T(.8, -.92), T(1.65, -1.12), T(2.3, -.98), T(3.1, -.74), T(3.9, -.58), T(4.4, -.4), T(4.58, -.12), T(4.3, .12)]);
+    curve(main, [T(4.3, .12), T(3.5, .2), T(2.5, .25), T(1.7, .33)]);
+    curve(main, [J(1.7, .33), J(2.6, .43), J(3.5, .46), J(4.08, .5), J(3.95, .74), J(3.0, .88), J(2.0, .98), T(1.2, .98), T(.5, .82), T(0, .6)]);
+    if (this.jaw > .08) {
+      for (const x of [2.55, 2.95, 3.35, 3.72, 4.05]) { const ly = lerp(.25, .13, (x - 2.5) / 1.6), h = x === 3.72 ? .3 : .18; poly(fine, [T(x - .09, ly), T(x, ly + h), T(x + .09, ly)]); }
+      for (const x of [2.8, 3.2, 3.6, 3.92]) poly(fine, [J(x - .08, .45), J(x, .27), J(x + .08, .45)]);
+      if (this.jaw > .3) curve(fine, [J(2.0, .62), J(2.9, .58), J(3.7, .66 + .1 * Math.sin(t * 9))]);
+    }
+    // eye, brow, cheek, nostril, snout ridges
+    if (this.blink > 0) curve(main, [T(1.95, -.6), T(2.35, -.62), T(2.8, -.62)]);
+    else {
+      curve(main, [T(1.95, -.6), T(2.35, -.82), T(2.8, -.62)]); curve(main, [T(2.8, -.62), T(2.35, -.48), T(1.95, -.6)]);
+      const p = T(2.42, -.64); solid.moveTo(p[0] + u * .11, p[1]); solid.arc(p[0], p[1], u * .11, 0, TAU);
+    }
+    curve(main, [T(1.5, -.98), T(2.3, -1.06), T(3.0, -.8)]);
+    curve(fine, [T(1.0, .05), T(1.75, -.22), T(2.55, -.24)]);
+    curve(fine, [T(3.98, -.5), T(4.22, -.42), T(4.2, -.27), T(4.03, -.3)]);
+    curve(fine, [T(3.3, -.73), T(3.42, -.52)]); curve(fine, [T(3.68, -.64), T(3.78, -.47)]);
+    // jagged cheek frill and flowing beard
+    poly(main, [[1.0, -.3], [-.6, -.5], [.35, .02], [-.8, .42], [.3, .55], [-.5, 1.15], [.8, .9]].map(([x, y], i) => T(x + (i % 2 ? Math.sin(t * 4 + i) * .06 : 0), y)));
+    const b = Math.sin(t * 2.6) * .15;
+    curve(fine, [J(2.7, .9), J(2.3, 1.35), T(1.7 + b, 1.95)]);
+    curve(fine, [J(3.2, .84), J(2.9, 1.25), T(2.4 + b, 1.75)]);
+    curve(fine, [J(2.2, .97), T(1.6, 1.4), T(.9 + b, 1.85)]);
+  }
+}
+
+/* ---------------------------- the European dragon ---------------------------- */
+// A winged, four-legged dragon drawn in profile. Neck and torso follow the head's flight path like the
+// Chinese dragon; the tail is a hanging chain, the legs are solved with IK (tucked in flight, planted
+// on the ground when walking, gripping when carrying) and the wings flap, glide, fold and stretch.
+const EU_TK = 18; // tail nodes
+const EU_STAND = 3.6; // height of the spine above the ground when standing (in head units)
+const euUp = t => t < .4 ? lerp(.45, 1.25, smooth(t / .4)) : t < .78 ? lerp(1.25, .95, smooth((t - .4) / .38)) : lerp(.95, .85, (t - .78) / .22);
+const euDn = t => t < .28 ? lerp(.55, .85, t / .28) : t < .58 ? lerp(.85, 2.1, smooth((t - .28) / .3)) : t < .84 ? lerp(2.1, 1.65, smooth((t - .58) / .26)) : lerp(1.65, .95, (t - .84) / .16);
+const euTailW = j => lerp(.8, .09, Math.pow(j / (EU_TK - 1), .85));
+const EU_LEGS = [
+  { hind: false, far: true, grp: 0 }, { hind: true, far: true, grp: 1 },
+  { hind: false, far: false, grp: 1 }, { hind: true, far: false, grp: 0 },
+];
+// wing skeleton in (chord along the body, span away from it): shoulder, elbow, wrist, thumb, 4 finger tips, membrane root
+const WING_OPEN = [[0, 0], [-1, 2.3], [1.2, 4.6], [1.75, 4.95], [-.2, 10.5], [-3.2, 9.6], [-5.6, 7.6], [-7.2, 5], [-6.8, .15]];
+const WING_FOLD = [[0, 0], [-1.6, 1.1], [.6, 2.3], [1, 2.65], [-6.2, 2.9], [-6.8, 2.3], [-6.6, 1.6], [-6, 1], [-6, .25]];
+const mix2 = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+function ik(ax, ay, tx, ty, l1, l2, px, py) { // two-bone IK; the joint bends toward (px,py)
+  const dx = tx - ax, dy = ty - ay, D = clamp(Math.hypot(dx, dy), Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3);
+  const a = Math.acos(clamp((l1 * l1 + D * D - l2 * l2) / (2 * l1 * D), -1, 1)), b = Math.atan2(dy, dx);
+  const c1 = [ax + Math.cos(b + a) * l1, ay + Math.sin(b + a) * l1], c2 = [ax + Math.cos(b - a) * l1, ay + Math.sin(b - a) * l1];
+  return ((c1[0] - ax) * px + (c1[1] - ay) * py) >= ((c2[0] - ax) * px + (c2[1] - ay) * py) ? c1 : c2;
+}
+function limb(P, fill, pts, rs) { // tapered sausage through the joints
+  const n = pts.length, Lp = [], Rp = [];
+  for (let k = 0; k < n; k++) {
+    const A = pts[Math.max(0, k - 1)], B = pts[Math.min(n - 1, k + 1)], [ux, uy] = norm(B[0] - A[0], B[1] - A[1]);
+    Lp.push([pts[k][0] - uy * rs[k], pts[k][1] + ux * rs[k]]); Rp.push([pts[k][0] + uy * rs[k], pts[k][1] - ux * rs[k]]);
+  }
+  curve(P, Lp); curve(P, Rp);
+  const e = pts[n - 1], [ux, uy] = norm(e[0] - pts[n - 2][0], e[1] - pts[n - 2][1]);
+  P.moveTo(Lp[n - 1][0], Lp[n - 1][1]); P.quadraticCurveTo(e[0] + ux * rs[n - 1] * 1.6, e[1] + uy * rs[n - 1] * 1.6, Rp[n - 1][0], Rp[n - 1][1]);
+  fillPoly(fill, [...Lp, ...Rp.slice().reverse()]);
+}
+const newLayer = () => ({ main: new Path2D(), fine: new Path2D(), fill: new Path2D(), wfill: new Path2D(), solid: new Path2D() });
+function ink(ctx, L, lw, amp) { // same pen as the Chinese dragon: tint, dark halo, line, faint second sketch stroke
+  if (cfg.bodyFill > 0) { ctx.fillStyle = rgba(cfg.background, cfg.bodyFill * .75); ctx.fill(L.wfill); ctx.fillStyle = rgba(cfg.background, cfg.bodyFill); ctx.fill(L.fill); }
+  ctx.strokeStyle = rgba(cfg.background, .55);
+  ctx.lineWidth = lw + 3; ctx.stroke(L.main); ctx.lineWidth = lw * .6 + 2.5; ctx.stroke(L.fine);
+  ctx.strokeStyle = cfg.lineColor;
+  ctx.lineWidth = lw; ctx.stroke(L.main); ctx.lineWidth = Math.max(.6, lw * .6); ctx.stroke(L.fine);
+  if (amp > 0 && !cfg.lowPower) { ctx.save(); ctx.translate(amp * .9, -amp * .6); ctx.globalAlpha = .3; ctx.lineWidth = Math.max(.5, lw * .55); ctx.stroke(L.main); ctx.restore(); }
+  ctx.fillStyle = cfg.lineColor; ctx.fill(L.solid);
+}
+
+class EuroDragon extends Dragon {
+  constructor(main) {
+    super(main, 26);
+    Object.assign(this, { kind: 'european', wig: .05, turnK: .2, iS: Math.round(this.N * 5 / 12.5), iH: this.N - 1, fireVis: 0,
+      gait: 'fly', fold: 0, landK: 0, gripK: 0, wphase: rand(0, TAU), glide: 0, gliding: false, glideT: rand(1, 3),
+      flapHard: 0, slowFlap: 0, stretch: 0, bob: 0, beats: 0, headLift: 0, headLiftT: 0, fireT: 0, fireAcc: 0, fireReach: 0,
+      ground: null, grip: null, load: false, hx: 0, hy: 0, tailVis: 0 });
+    this.tail = [];
+    this.legs = EU_LEGS.map(l => ({ ...l, x: 0, y: 0, sx: 0, sy: 0, tx: 0, fx: 0, fy: 0, st: 1, dur: .3, stepping: false, planted: false }));
+  }
+  rescale() {
+    const m = Math.min(G.W, G.H);
+    this.u = m * .03 * cfg.dragonSize * this.sizeMul; this.L = this.u * 34; this.seg = this.u * 12.5 / this.N;
+    this.base = m * .36 * cfg.dragonSpeed * (this.main ? 1 : .85);
+  }
+  reset() { super.reset(); this.takeoff(); this.grip = null; this.load = false; this.fireT = 0; this.slowFlap = 0; }
+  land(ground) { this.gait = 'walk'; this.ground = ground; this.headLiftT = 2; this.wiggleMul = .3; this.legs.forEach(l => l.planted = false); }
+  takeoff() {
+    if (this.gait !== 'fly') { this.gait = 'fly'; this.flapHard = .9; }
+    this.ground = null; this.headLiftT = 0; this.wiggleMul = 1; this.stretch = 0;
+  }
+  breathe(dur, reach) { this.fireT = dur; this.fireReach = reach || 0; }
+  puff(n = 3) { // curls of smoke from the nostrils
+    for (let k = 0; k < n; k++) {
+      const p = this.local(3.5, -.25), u = this.u;
+      G.parts.push({ type: 'smoke', x: p.x, y: p.y, vx: Math.cos(this.ha) * u * 2 + rand(-1, 1) * u, vy: -u * rand(2.5, 4.5), k: 1.2,
+        t0: G.t + k * .12, life: rand(1.3, 1.9), size: u * rand(.35, .6), seed: rand(0, TAU) });
+    }
+  }
+  local(lx, ly) {
+    const c = Math.cos(this.ha), s = Math.sin(this.ha), u = this.u, f = this.flip;
+    return { x: this.hx + (c * lx - s * ly * f) * u, y: this.hy + this.bob + (s * lx + c * ly * f) * u };
+  }
+  snout() { return this.local(3.8, 0); }
+  mouth() { return this.local(2.6, .3 + this.jaw * .6); }
+  dorsal(s) { const sg = s.f >= 0 ? 1 : -1; return [s.ux * sg, s.uy * sg]; }
+  gripPoint() { // just below the hips, between the hind feet
+    const s = this.S[this.iH], [nx, ny] = this.dorsal(s), u = this.u;
+    return { x: s.x - nx * u * 3.5 + s.dx * u * .4, y: s.y - ny * u * 3.5 + s.dy * u * .4 + this.bob };
+  }
+  legRoot(L) {
+    const i = L.hind ? this.iH : this.iS, s = this.S[i], [nx, ny] = this.dorsal(s), u = this.u, dn = u * euDn(i / this.N);
+    const k = L.hind ? -dn * .3 : -dn * .45, fw = (L.hind ? -.2 : .1) * u + (L.far ? .3 * u : 0), up = L.far ? .15 * u : 0;
+    return { x: s.x + nx * (k + up) + s.dx * fw, y: s.y + ny * (k + up) + s.dy * fw };
+  }
+  tailTip() { return this.tailVis === EU_TK ? this.tail[EU_TK - 1] : null; }
+  computeSpine() {
+    super.computeSpine();
+    const S = this.S, iS = this.iS, vis = this.nAll, lift = this.headLift * this.u;
+    if (lift > .01 && vis > 2) { // raise the head on an S-shaped neck
+      for (let i = 0; i <= Math.min(vis - 1, iS); i++) { const s = S[i], [nx, ny] = this.dorsal(s), k = Math.pow(1 - i / iS, 1.7) * lift; s.x += nx * k; s.y += ny * k; }
+      for (let i = 1; i <= Math.min(vis - 1, iS + 1); i++) {
+        const s = S[i], p = S[i - 1], q = S[Math.min(vis - 1, i + 1)], [ax, ay] = norm(p.x - q.x, p.y - q.y);
+        s.dx = ax; s.dy = ay; s.ux = ay; s.uy = -ax;
+      }
+    }
+    // the ribcage doesn't bend like a serpent: lay the torso straight from the shoulders back along the path
+    if (vis === this.N + 1) {
+      const a = S[iS], e = S[this.N], [tx, ty] = norm(a.x - e.x, a.y - e.y);
+      for (let i = iS + 1; i <= this.N; i++) {
+        const s = S[i], k = (i - iS) * this.seg; s.x = a.x - tx * k; s.y = a.y - ty * k; s.dx = tx; s.dy = ty; s.ux = ty; s.uy = -tx;
+      }
+      const m = S[iS - 1], [mx, my] = norm(m.x - S[iS + 1].x, m.y - S[iS + 1].y); a.dx = mx; a.dy = my; a.ux = my; a.uy = -mx;
+    }
+    this.hx = S[0].x; this.hy = S[0].y;
+    const tot = this.N + 1 + EU_TK, r = this.reveal >= 1 ? tot : Math.floor(this.reveal * tot);
+    this.nVis = Math.min(vis, r); this.tailVis = vis === this.N + 1 ? clamp(r - this.N - 1, 0, EU_TK) : 0;
+  }
+
+  updateParts(dt) {
+    const u = this.u, fly = this.gait === 'fly', tow = (v, t, r) => v + clamp(t - v, -r, r);
+    this.fold = tow(this.fold, fly ? 0 : this.stretch > 0 ? .3 : 1, dt * 2.2);
+    this.landK = tow(this.landK, fly ? 0 : 1, dt * 2.5);
+    this.gripK = tow(this.gripK, this.grip ? 1 : 0, dt * 2.5);
+    this.headLift += (this.headLiftT - this.headLift) * Math.min(1, dt * 2.5);
+    if (this.flapHard > 0) this.flapHard -= dt;
+    if (this.stretch > 0) this.stretch -= dt;
+    // --- wings: flap faster when slow or climbing, glide now and then when cruising
+    const sp = clamp(this.speed / this.base, 0, 1.5), slow = clamp(1 - sp * 1.25, 0, 1), dive = Math.sin(this.a), climb = Math.max(0, -dive) * Math.min(1, sp);
+    if ((this.glideT -= dt) <= 0) { this.gliding = !this.gliding && Math.random() < .6; this.glideT = this.gliding ? rand(1.2, 2.8) : rand(1.5, 4); }
+    const wantGlide = fly && !this.load && this.flapHard <= 0 && !this.slowFlap && slow < .2 && (this.gliding || dive > .55);
+    this.glide += ((wantGlide ? 1 : 0) - this.glide) * Math.min(1, dt * 2.2);
+    if (fly || this.stretch > 0) {
+      const fr = this.slowFlap ? .55 : fly ? 1.15 + 1.4 * slow + 1.1 * climb + (this.flapHard > 0 ? 1.1 : 0) + (this.load ? .45 : 0) : .7;
+      const prev = this.wphase; this.wphase += dt * fr * TAU * (1 - .9 * this.glide);
+      if (Math.floor((this.wphase - Math.PI / 2) / TAU) > Math.floor((prev - Math.PI / 2) / TAU)) this.beats++; // a downstroke starts
+    }
+    const bobT = fly ? Math.sin(this.wphase - .6) * u * (.18 + .3 * slow) * (1 - this.glide) : 0;
+    this.bob += (bobT - this.bob) * Math.min(1, dt * 10);
+    this.updateTail(dt); this.updateLegs(dt);
+    // --- fire
+    if (this.fireT > 0) {
+      this.fireT -= dt; this.jawT = .85; this.jawHold = .12;
+      if (this.jaw > .4) { this.fireAcc += dt * 30; while (this.fireAcc >= 1) { this.fireAcc--; this.emitFlame(); } }
+    }
+    this.fireVis = tow(this.fireVis, this.fireT > 0 && this.jaw > .4 ? 1 : 0, dt * (this.fireT > 0 ? 4 : 2.5));
+  }
+  drawFire(ctx) { // the jet of flame: a widening, licking cone with an inner core
+    if (this.fireVis <= .01) return;
+    const u = this.u, m = this.local(3.3, .3 + this.jaw * .3), a = this.ha + .05 * this.flip, c = Math.cos(a), s = Math.sin(a), t = G.t;
+    const len = (this.fireReach || u * 15) * this.fireVis, start = this.fireT > 0 ? 0 : len * (1 - this.fireVis);
+    const X = (lx, ly) => [m.x + c * lx - s * ly, m.y + s * lx + c * ly];
+    const half = x => u * .25 + x * .17, M = 22;
+    const edge = (sc, ph) => { // licking edges, ending in three flickering tongues
+      const top = [], bot = [];
+      for (let k = 0; k <= M; k++) {
+        const x = lerp(start, len, k / M), xu = x / u, h = half(x) * sc, w = Math.min(1, x / (u * 2));
+        const lk = o => (Math.pow(Math.abs(Math.sin(xu * .85 - t * 13 + o + ph)), 4) * .55 + Math.sin(xu * 1.7 - t * 19 + o * 1.3 + ph) * .12) * h * w;
+        top.push(X(x, -(h + lk(0)))); bot.push(X(x, h + lk(1.9)));
+      }
+      const p = new Path2D(); curve(p, top);
+      const h = half(len) * sc, fl = k => Math.sin(t * 16 + k * 2.3 + ph) * h * .25, Q = (cx, cy, x, y) => { const a = X(cx, cy), b = X(x, y); p.quadraticCurveTo(a[0], a[1], b[0], b[1]); };
+      Q(len + h * .5, -h, len + h * .8, -h * .75 + fl(0));
+      Q(len + h * .55, -h * .45, len + h * .25, -h * .3);
+      Q(len + h * .9, -h * .25, len + h * 1.5, fl(1));
+      Q(len + h * .9, h * .25, len + h * .25, h * .3);
+      Q(len + h * .55, h * .45, len + h * .8, h * .75 + fl(2));
+      const a = X(len + h * .5, h); p.quadraticCurveTo(a[0], a[1], bot[M][0], bot[M][1]);
+      curve(p, bot.slice().reverse()); return p;
+    };
+    const lw = cfg.lineWidth;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const f of [.25, .5, .75, 1]) { ctx.globalAlpha = .3 * this.fireVis; const p = X(lerp(start, len, f), 0); glow(ctx, p[0], p[1], half(len * f) * 2, cfg.lineColor); }
+    const outer = edge(1, 0), inner = edge(.45, 2.1);
+    ctx.globalAlpha = .9 * this.fireVis; ctx.strokeStyle = rgba(cfg.background, .5); ctx.lineWidth = lw + 3; ctx.stroke(outer);
+    ctx.strokeStyle = cfg.lineColor; ctx.lineWidth = lw * 1.1; ctx.stroke(outer);
+    ctx.globalAlpha = .7 * this.fireVis; ctx.lineWidth = Math.max(.6, lw * .65); ctx.stroke(inner);
+    ctx.restore();
+  }
+  emitFlame() {
+    const u = this.u, m = this.local(3.3, .3 + this.jaw * .3), a = this.ha + rand(-.11, .11) + .05 * this.flip;
+    const reach = this.fireReach || u * 15, k = 3, v = reach * k * rand(.8, 1.05);
+    G.parts.push({ type: 'flame', x: m.x, y: m.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, k, g: -u * 8, t0: G.t,
+      life: rand(.5, .75), size: u * rand(.4, .7), seed: rand(0, 1000), ang: a });
+  }
+  updateTail(dt) { // a hanging chain: continues the body, sags with gravity when slow, sways
+    const T = this.tail, S = this.S, A = S[this.N], sl = this.u * .82, fly = this.gait === 'fly';
+    const sp = clamp(this.speed / this.base, 0, 1.5), droop = fly ? .1 + .45 * clamp(1 - sp, 0, 1) : .35;
+    if (this.whReset || T.length !== EU_TK) { T.length = 0; for (let j = 0; j < EU_TK; j++) T.push({ x: A.x - A.dx * sl * j, y: A.y - A.dy * sl * j }); }
+    this.whReset = false;
+    T[0].x = A.x; T[0].y = A.y;
+    const bx = -A.dx, by = -A.dy; let px = bx, py = by;
+    for (let j = 1; j < EU_TK; j++) {
+      const n = T[j], p = T[j - 1], q = j / EU_TK;
+      // rest pose is absolute (straight back from the hips, sagging toward the tip), so the chain can't curl up on itself
+      let [rx, ry] = norm(bx, by + droop * q * 1.6);
+      [rx, ry] = rot(rx, ry, Math.sin(G.t * 1.7 - j * .38 + this.seed) * (.04 + .2 * q) * (fly ? 1 : .5) + (fly ? Math.sin(this.wphase - j * .3) * .05 * (1 - this.glide) : 0));
+      [rx, ry] = norm(lerp(px, rx, .45), lerp(py, ry, .45));
+      const k = Math.min(1, dt * 12 * (1 - .6 * q));
+      n.x += (p.x + rx * sl - n.x) * k; n.y += (p.y + ry * sl - n.y) * k;
+      const [ux, uy] = norm(n.x - p.x, n.y - p.y); n.x = p.x + ux * sl; n.y = p.y + uy * sl;
+      if (this.ground && this.landK > .3) { const gy = this.ground(n.x); if (gy != null && n.y > gy - this.u * .25) n.y = gy - this.u * .25; }
+      px = ux; py = uy;
+    }
+  }
+  updateLegs(dt) {
+    const u = this.u, stride = u * 2.3, grips = this.grip && this.gripK > .01 ? this.grip() : null;
+    for (const L of this.legs) {
+      const s = this.S[L.hind ? this.iH : this.iS], [nx, ny] = this.dorsal(s), r = this.legRoot(L);
+      const sw = Math.sin(this.wphase + (L.hind ? 1 : 0)) * u * .15 * (1 - this.glide);
+      // tucked in flight: front paws curled under the chest, hind legs trailing
+      const bk = L.hind ? -2.4 : .6, dn = L.hind ? 1.3 : 1.4;
+      let tx = r.x + s.dx * u * bk - nx * u * dn + nx * sw, ty = r.y + s.dy * u * bk - ny * u * dn + ny * sw;
+      if (L.hind && grips) { const g = grips[L.far ? 1 : 0]; tx = lerp(tx, g.x, this.gripK); ty = lerp(ty, g.y - this.bob, this.gripK); }
+      if (this.landK > .01 && this.ground) { // walking: feet planted on the ground, stepping in diagonal pairs
+        const rx = r.x + s.dx * u * (L.hind ? .2 : .35), gy = this.ground(rx) ?? (L.planted ? L.y : r.y + u * 3.2);
+        if (!L.planted) { L.x = rx + (L.grp ? 1 : -1) * stride * .2 * (s.dx >= 0 ? 1 : -1); L.y = gy; L.planted = true; L.stepping = false; }
+        if (L.stepping) {
+          L.st = Math.min(1, L.st + dt / L.dur); const e = smooth(L.st);
+          L.x = lerp(L.sx, L.tx, e); L.y = lerp(L.sy, gy, e) - Math.sin(Math.PI * L.st) * u * .7;
+          if (L.st >= 1) L.stepping = false;
+        } else {
+          L.y = gy; const off = rx - L.x;
+          if (Math.abs(off) > stride * .55 && !this.legs.some(o => o.stepping && o.grp !== L.grp))
+            Object.assign(L, { stepping: true, st: 0, sx: L.x, sy: L.y, tx: rx + Math.sign(off) * stride * .4, dur: clamp(stride / Math.max(this.speed, u) * .45, .16, .4) });
+        }
+        tx = lerp(tx, L.x, this.landK); ty = lerp(ty, L.y, this.landK);
+      } else { L.planted = false; L.stepping = false; }
+      L.fx = tx; L.fy = ty;
+    }
+  }
+
+  // pass -1 = parts behind the pictures, +1 = parts in front
+  draw(ctx, pass) {
+    const n = this.nVis; if (n < 2) return;
+    const S = this.S, N = this.N, u = this.u, TK = EU_TK, T = this.tail, tv = Math.min(this.tailVis, T.length);
+    const amp = cfg.sketchiness * clamp(u / 28, .5, 1.6), boil = Math.floor(G.t * 7), seed = this.seed;
+    const jit = (i, k) => amp ? (hash(i * 12.9898 + k * 78.233 + boil * 3.71 + seed) - .5) * 2 * amp : 0;
+    const zp = z => (z >= 0 ? 1 : -1) === pass;
+    const back = newLayer(), mid = newLayer(), front = newLayer();
+    // neck, torso and tail as one list of body points
+    const B = [];
+    for (let i = 0; i < n; i++) { const s = S[i], t = i / N; B.push({ x: s.x, y: s.y, dx: s.dx, dy: s.dy, ux: s.ux, uy: s.uy, f: s.f, z: s.z, up: u * euUp(t), dn: u * euDn(t), i }); }
+    const hz = S[N].z, hf = S[N].f;
+    if (n === N + 1) for (let j = 1; j < tv; j++) {
+      const p = T[j - 1], q = T[Math.min(tv - 1, j + 1)], [ax, ay] = norm(p.x - q.x, p.y - q.y), w = u * euTailW(j);
+      B.push({ x: T[j].x, y: T[j].y, dx: ax, dy: ay, ux: ay, uy: -ax, f: hf, z: hz, up: w, dn: w, tail: j });
+    }
+    const nB = B.length, full = tv === TK;
+    for (let i = 0; i < nB;) {
+      if (!zp(B[i].z)) { i++; continue; }
+      let j = i; while (j + 1 < nB && zp(B[j + 1].z)) j++;
+      this.bodyRunEU(mid, B, Math.max(0, i - 1), Math.min(nB - 1, j + 1), jit, full);
+      i = j + 1;
+    }
+    // dorsal spikes, belly plates, a few scales
+    const sides = p => { const ft = (p.f + 1) / 2, wt = lerp(p.dn, p.up, ft), wb = lerp(p.up, p.dn, ft), sg = p.f >= 0 ? 1 : -1; return { sg, wd: sg > 0 ? wt : wb, wv: sg > 0 ? wb : wt }; };
+    for (let k = 2; k < nB - 2; k++) {
+      const p = B[k]; if (!zp(p.z)) continue;
+      const { sg, wd, wv } = sides(p), af = Math.abs(p.f), ox = p.ux * sg, oy = p.uy * sg;
+      if (k % 2 === 0) {
+        const q = B[k + 1], qs = sides(q), sz = u * (p.tail ? lerp(.55, .15, p.tail / TK) : p.i < this.iS ? .36 : .62) * (.55 + .45 * af);
+        const ax = p.x + ox * wd, ay = p.y + oy * wd, bx = q.x + q.ux * sg * qs.wd, by = q.y + q.uy * sg * qs.wd, P = k % 4 ? mid.fine : mid.main;
+        P.moveTo(ax, ay);
+        P.quadraticCurveTo(lerp(ax, bx, .3) + ox * sz * .7, lerp(ay, by, .3) + oy * sz * .7, lerp(ax, bx, .95) + ox * sz + jit(k, 9), lerp(ay, by, .95) + oy * sz + jit(k, 10));
+        P.lineTo(bx, by);
+      }
+      if (af > .25 && (p.tail ? p.tail < TK * .6 : k >= 3)) {
+        const vx = p.x - ox * wv, vy = p.y - oy * wv, k2 = 1 - .4 * af;
+        mid.fine.moveTo(vx, vy); mid.fine.quadraticCurveTo(p.x - ox * wv * k2 + p.dx * u * .15, p.y - oy * wv * k2 + p.dy * u * .15, p.x - ox * wv * (k2 - .05), p.y - oy * wv * (k2 - .05));
+      }
+      if (!p.tail && p.i > this.iS && p.i < N - 1 && p.i % 3 === 0 && af > .3) {
+        const cx = p.x + ox * wd * .25, cy = p.y + oy * wd * .25, r = u * .26;
+        mid.fine.moveTo(cx + ox * r, cy + oy * r); mid.fine.quadraticCurveTo(cx - p.dx * u * .5, cy - p.dy * u * .5, cx - ox * r, cy - oy * r);
+      }
+    }
+    if (full && zp(hz)) { // spade at the tail tip
+      const e = T[TK - 1], p = T[TK - 2], [bx, by] = norm(e.x - p.x, e.y - p.y), nx = -by, ny = bx;
+      const L1 = [e.x + bx * u * .45 + nx * u * .85, e.y + by * u * .45 + ny * u * .85], L2 = [e.x + bx * u * .45 - nx * u * .85, e.y + by * u * .45 - ny * u * .85];
+      const tip = [e.x + bx * u * 2.1 + jit(950, 1), e.y + by * u * 2.1 + jit(950, 2)];
+      const sp = new Path2D();
+      sp.moveTo(e.x, e.y); sp.quadraticCurveTo(e.x + nx * u * .55 - bx * u * .2, e.y + ny * u * .55 - by * u * .2, L1[0], L1[1]);
+      sp.quadraticCurveTo(e.x + bx * u * 1.2 + nx * u * .45, e.y + by * u * 1.2 + ny * u * .45, tip[0], tip[1]);
+      sp.quadraticCurveTo(e.x + bx * u * 1.2 - nx * u * .45, e.y + by * u * 1.2 - ny * u * .45, L2[0], L2[1]);
+      sp.quadraticCurveTo(e.x - nx * u * .55 - bx * u * .2, e.y - ny * u * .55 - by * u * .2, e.x, e.y);
+      mid.main.addPath(sp); mid.fill.addPath(sp);
+      mid.fine.moveTo(e.x, e.y); mid.fine.lineTo(lerp(e.x, tip[0], .75), lerp(e.y, tip[1], .75));
+    }
+    for (const L of this.legs) { const i = L.hind ? this.iH : this.iS; if (i < n && zp(S[i].z)) this.leg(L.far ? back : front, L); }
+    if (this.iS < n && zp(S[this.iS].z)) { this.wing(back, true, jit); this.wing(front, false, jit); }
+    if (zp(S[0].z)) this.head(mid, jit);
+
+    const lw = cfg.lineWidth * (.6 + .4 * this.sizeMul);
+    ctx.save(); ctx.translate(0, this.bob); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ink(ctx, back, lw * .85, amp); ink(ctx, mid, lw, amp); ink(ctx, front, lw, amp);
+    if (this.reveal < 1) { const p = tv > 0 ? T[tv - 1] : S[n - 1]; if (zp(p.z ?? hz)) glow(ctx, p.x, p.y, u * 2.2, cfg.lineColor); } // the pen tip
+    ctx.restore();
+  }
+  bodyRunEU(L, B, a, b, jit, full) {
+    const top = [], bot = [], bel = [], u = this.u;
+    for (let k = a; k <= b; k++) {
+      const p = B[k], ft = (p.f + 1) / 2, wt = lerp(p.dn, p.up, ft), wb = lerp(p.up, p.dn, ft);
+      top.push([p.x + p.ux * wt + jit(k, 1), p.y + p.uy * wt + jit(k, 2)]);
+      bot.push([p.x - p.ux * wb + jit(k, 3), p.y - p.uy * wb + jit(k, 4)]);
+      if (k >= 3 && (!p.tail || p.tail < EU_TK * .6)) { const sg = p.f >= 0 ? 1 : -1, wv = sg > 0 ? wb : wt, kk = 1 - .4 * Math.abs(p.f); bel.push([p.x - p.ux * sg * wv * kk, p.y - p.uy * sg * wv * kk]); }
+    }
+    curve(L.main, top); curve(L.main, bot); if (bel.length > 1) curve(L.fine, bel);
+    let tip = null;
+    if (full && b === B.length - 1) {
+      const p = B[b]; tip = [p.x - p.dx * u * .5, p.y - p.dy * u * .5];
+      const t1 = top[top.length - 1], b1 = bot[bot.length - 1];
+      L.main.moveTo(t1[0], t1[1]); L.main.lineTo(tip[0], tip[1]); L.main.lineTo(b1[0], b1[1]);
+    }
+    fillPoly(L.fill, [...top, ...(tip ? [tip] : []), ...bot.slice().reverse()]);
+  }
+  wing(L, far, jit) {
+    const wr = smooth((this.reveal - .2) / .6); if (wr <= .01) return;
+    const S = this.S, s0 = S[this.iS], u = this.u * 1.12 * wr, f = s0.f, sg = f >= 0 ? 1 : -1;
+    const dx = s0.dx, dy = s0.dy, ux = s0.ux, uy = s0.uy, up0 = this.u * euUp(this.iS / this.N) * .7, sh = far ? .4 : 0;
+    const Ox = s0.x + ux * sg * up0 + dx * this.u * sh, Oy = s0.y + uy * sg * up0 + dy * this.u * sh;
+    const W = (c, v) => [Ox + (dx * c + ux * v * f) * u, Oy + (dy * c + uy * v * f) * u];
+    // flap: elevation angle th, projected for a camera slightly above (near wing dips below, far wing shows above)
+    const ph = this.wphase + (far ? .3 : 0), g = this.glide;
+    const amp = .95 + (this.flapHard > 0 ? .25 : 0) + this.slowFlap * .3;
+    const th = lerp(.3 + amp * Math.sin(ph), .14 + .04 * Math.sin(G.t * .9), g);
+    const proj = Math.sin(th) * .82 + (far ? .57 : -.57) * Math.cos(th);
+    const upK = Math.max(0, Math.cos(ph)) * (1 - g), spanK = 1 - .28 * upK, sweep = -.16 * Math.cos(ph) * (1 - g), fo = this.fold;
+    const P = WING_OPEN.map(([c, v], i) => {
+      const sv = v * spanK, [fc, fv] = WING_FOLD[i], q = W(lerp(c + sv * sweep, fc, fo), lerp(sv * proj, fv + (far ? .35 : 0), fo));
+      return i && i < 8 ? [q[0] + jit(900 + i + (far ? 20 : 0), 1), q[1] + jit(900 + i + (far ? 20 : 0), 2)] : q;
+    });
+    const [Sh, El, Wr, Th, T1, T2, T3, T4, Rt] = P, M = far ? L.fine : L.main, F = L.fine, edge = [T1, T2, T3, T4, Rt];
+    const edgeOn = Math.abs(lerp(proj * spanK, 1, fo)) < .3;                           // seen edge-on: keep it simple
+    curve(M, [Sh, El, Wr]);                                                             // arm
+    const [bx, by] = norm(El[0] - Sh[0], El[1] - Sh[1]), bo = this.u * .22 * wr;        // arm thickness
+    if (!far) curve(F, [[Sh[0] - by * bo, Sh[1] + bx * bo], [El[0] - by * bo * .6, El[1] + bx * bo * .6], Wr]);
+    edge.slice(0, 4).forEach((tp, i) => {                                               // finger bones
+      if (edgeOn && i % 2) return;
+      const c = mix2(mix2(Wr, tp, .5), Rt, .07), P2 = i === 0 || !far ? M : F;
+      P2.moveTo(Wr[0], Wr[1]); P2.quadraticCurveTo(c[0], c[1], tp[0], tp[1]);
+    });
+    const scallop = (p, i) => { const a = edge[i], b = edge[i + 1], c = mix2(mix2(a, b, .5), Wr, i === 3 ? .12 : .22); p.quadraticCurveTo(c[0], c[1], b[0], b[1]); };
+    M.moveTo(T1[0], T1[1]); for (let i = 0; i < 4; i++) scallop(M, i);                // trailing edge
+    if (fo < .6 && !edgeOn) for (let i = 0; i < 4; i++) {                              // membrane creases
+      const m = mix2(edge[i], edge[i + 1], .5), a = mix2(Wr, m, .4), b = mix2(Wr, m, .72);
+      F.moveTo(a[0], a[1]); F.lineTo(b[0], b[1]);
+    }
+    const Fr = W(1.1, .3 * (1 - fo)), pc = mix2(mix2(Wr, Fr, .5), El, .25);           // membrane in front of the arm
+    F.moveTo(Wr[0], Wr[1]); F.quadraticCurveTo(pc[0], pc[1], Fr[0], Fr[1]);
+    const [tx, ty] = norm(Th[0] - Wr[0], Th[1] - Wr[1]);                                 // thumb claw
+    M.moveTo(Wr[0], Wr[1]); M.lineTo(Th[0], Th[1]);
+    M.quadraticCurveTo(Th[0] + tx * u * .35, Th[1] + ty * u * .35, Th[0] + tx * u * .3 + ty * u * .25 * f, Th[1] + ty * u * .3 - tx * u * .25 * f);
+    const wf = L.wfill; wf.moveTo(Sh[0], Sh[1]); wf.lineTo(El[0], El[1]); wf.lineTo(Wr[0], Wr[1]); wf.lineTo(T1[0], T1[1]);
+    for (let i = 0; i < 4; i++) scallop(wf, i);
+    wf.closePath();
+  }
+  leg(L, lg) {
+    const s = this.S[lg.hind ? this.iH : this.iS], [nx, ny] = this.dorsal(s), dx = s.dx, dy = s.dy;
+    const u = this.u * (lg.far ? .92 : 1), r = this.legRoot(lg), P = lg.far ? L.fine : L.main, R = [r.x, r.y];
+    let F = [lg.fx, lg.fy];
+    const reach = (A, l, l1, l2) => { // keep the end joint within reach of the root
+      const d = Math.hypot(A[0] - r.x, A[1] - r.y), mx = (l1 + l2) * .98;
+      return d > mx ? [r.x + (A[0] - r.x) * mx / d, r.y + (A[1] - r.y) * mx / d] : A;
+    };
+    if (lg.hind) { // digitigrade: thigh, shin, raised heel, toes
+      const k = Math.max(this.landK, this.gripK), fv = norm(dx * .75 + nx * .65, dy * .75 + ny * .65), wv = norm(-dx * .5 + nx * .86, -dy * .5 + ny * .86);
+      const mv = norm(lerp(fv[0], wv[0], k), lerp(fv[1], wv[1], k)), ml = u * 1.2, l1 = u * 1.9, l2 = u * 1.7;
+      let A = reach([F[0] + mv[0] * ml, F[1] + mv[1] * ml], ml, l1, l2); F = [A[0] - mv[0] * ml, A[1] - mv[1] * ml];
+      const K = ik(r.x, r.y, A[0], A[1], l1, l2, dx, dy);
+      limb(P, L.fill, [R, K, A, F], [u * .98, u * .55, u * .32, u * .24]);
+      L.fine.moveTo(r.x - dx * u * .5 - nx * u * .3, r.y - dy * u * .5 - ny * u * .3); // thigh muscle
+      L.fine.quadraticCurveTo(lerp(r.x, K[0], .5) + dx * u * .3, lerp(r.y, K[1], .5) + dy * u * .3, lerp(r.x, K[0], .85), lerp(r.y, K[1], .85));
+    } else { // arm: upper arm, forearm, paw
+      const l1 = u * 1.4, l2 = u * 1.3;
+      let Wv = reach([F[0] + nx * u * .45, F[1] + ny * u * .45], 0, l1, l2); F = [Wv[0] - nx * u * .45, Wv[1] - ny * u * .45];
+      const E = ik(r.x, r.y, Wv[0], Wv[1], l1, l2, -dx, -dy);
+      limb(P, L.fill, [R, E, Wv, F], [u * .68, u * .42, u * .28, u * .2]);
+    }
+    // toes & talons: forward when walking, trailing when flying, hooked down when gripping
+    const wk = this.landK, gr = lg.hind ? this.gripK : 0, fl = Math.max(0, 1 - wk - gr);
+    const td = norm(dx * (.95 * wk - .8 * fl + .25 * gr) - nx * (.2 * wk + .45 * fl + .95 * gr), dy * (.95 * wk - .8 * fl + .25 * gr) - ny * (.2 * wk + .45 * fl + .95 * gr));
+    const curl = .3 + .7 * Math.max(fl, gr);
+    for (let k = -1; k <= 1; k++) {
+      const [ux, uy] = rot(td[0], td[1], k * .38), l = u * (k ? .62 : .78) * (lg.hind ? 1 : .8), ex = F[0] + ux * l, ey = F[1] + uy * l;
+      P.moveTo(F[0] + ux * u * .08, F[1] + uy * u * .08);
+      P.quadraticCurveTo(F[0] + ux * l * .7 + nx * u * .1, F[1] + uy * l * .7 + ny * u * .1, ex, ey);
+      P.quadraticCurveTo(ex + ux * u * .12, ey + uy * u * .12, ex + ux * u * .05 - nx * u * .28 * curl, ey + uy * u * .05 - ny * u * .28 * curl);
+    }
+  }
+  head(L, jit) {
+    const hs = smooth(this.reveal * 5); if (hs <= .01) return;
+    const u = this.u * hs, ca = Math.cos(this.ha), sa = Math.sin(this.ha), fl = this.flip, X = this.hx, Y = this.hy, t = G.t;
+    const { main, fine, solid, fill } = L;
+    let k = 0;
+    const T = (lx, ly) => { k++; return [X + (ca * lx - sa * ly * fl) * u + jit(700 + k, 1) * .6, Y + (sa * lx + ca * ly * fl) * u + jit(700 + k, 2) * .6]; };
+    const jc = Math.cos(this.jaw), js = Math.sin(this.jaw);
+    const J = (lx, ly) => { const x = lx - 1.15, y = ly - .3; return T(1.15 + x * jc - y * js, .3 + x * js + y * jc); };
+    const sw = Math.sin(t * 1.5) * .05;
+    // head silhouette (also filled, so it hides what's behind it)
+    const skull = [T(0, -.48), T(.6, -.66), T(1.3, -.74), T(1.75, -.84), T(2.2, -.7), T(2.8, -.52), T(3.35, -.4), T(3.72, -.25), T(3.85, -.04), T(3.65, .12)];
+    const lip = [T(3.65, .12), T(3.0, .17), T(2.2, .21), T(1.25, .28)];
+    const jaw = [J(1.25, .28), J(2.0, .33), J(2.8, .36), J(3.35, .38), J(3.28, .56), J(2.6, .66), J(1.8, .72), T(1.05, .78), T(.45, .74), T(0, .52)];
+    fillPoly(fill, [...skull, ...lip, ...jaw]); // one outline, so the back of the head has no unfilled wedge
+    curve(main, skull); curve(main, lip); curve(main, jaw);
+    // swept-back horns (near one bold, far one fine) with growth rings
+    main.moveTo(...T(.35, -.58)); main.quadraticCurveTo(...T(-.6, -1.15), ...T(-2.0, -1.45 + sw)); main.quadraticCurveTo(...T(-.55, -.8), ...T(-.05, -.42));
+    fine.moveTo(...T(.75, -.7)); fine.quadraticCurveTo(...T(.1, -1.25), ...T(-1.1, -1.75 + sw)); fine.quadraticCurveTo(...T(-.1, -1.0), ...T(.45, -.66));
+    curve(fine, [T(-.45, -.97), T(-.3, -.72)]); curve(fine, [T(-1.1, -1.24), T(-1.0, -1.06)]);
+    // teeth and forked tongue when the jaw opens
+    if (this.jaw > .08) {
+      for (const x of [2.2, 2.6, 3.0, 3.35]) poly(fine, [T(x - .07, .19), T(x, .19 + (x === 2.6 ? .26 : .15)), T(x + .07, .19)]);
+      for (const x of [2.4, 2.85, 3.2]) poly(fine, [J(x - .07, .36), J(x, .2), J(x + .07, .36)]);
+      if (this.jaw > .3) { const w = .08 * Math.sin(t * 10); curve(fine, [J(1.6, .5), J(2.4, .48), J(3.0, .5 + w)]); curve(fine, [J(3.0, .5 + w), J(3.3, .4 + w)]); curve(fine, [J(3.0, .5 + w), J(3.28, .6 + w)]); }
+    }
+    // eye with slit pupil, heavy brow, nostril, cheek
+    if (this.blink > 0) curve(main, [T(1.8, -.5), T(2.15, -.52), T(2.5, -.48)]);
+    else {
+      curve(main, [T(1.8, -.5), T(2.15, -.66), T(2.5, -.48)]); curve(main, [T(2.5, -.48), T(2.15, -.38), T(1.8, -.5)]);
+      const p = T(2.17, -.52); solid.moveTo(p[0] + ca * u * .05, p[1] + sa * u * .05); solid.ellipse(p[0], p[1], u * .05, u * .11, this.ha, 0, TAU);
+    }
+    curve(main, [T(1.45, -.78), T(2.0, -.92), T(2.7, -.66)]);
+    poly(main, [T(1.55, -.84), T(1.3, -1.08), T(1.85, -.9)]);
+    curve(fine, [T(3.42, -.34), T(3.6, -.32), T(3.62, -.2)]);
+    curve(fine, [T(2.8, -.58), T(2.9, -.44)]); curve(fine, [T(3.15, -.48), T(3.22, -.36)]);
+    curve(fine, [T(.9, .02), T(1.45, -.18), T(2.1, -.2)]);
+    // spiky frill at the back of the jaw, barbs under the chin
+    poly(main, [[.55, .1], [-.35, -.05], [.25, .36], [-.55, .5], [.2, .62], [-.25, .95], [.6, .78]].map(([x, y], i) => T(x + (i % 2 ? Math.sin(t * 3 + i) * .04 : 0), y)));
+    poly(fine, [J(2.2, .7), J(2.0, .95), J(1.75, .73)]); poly(fine, [J(2.75, .65), J(2.6, .86), J(2.4, .68)]);
+  }
+}
+const KINDS = { chinese: Dragon, european: EuroDragon };
+
+/* ---------------------------- effects ---------------------------- */
+function impact(x, y, ang, size, full) { G.fx.push({ x, y, ang, size, full, t0: G.t, life: .5 }); }
+function drawFx(ctx) {
+  ctx.strokeStyle = cfg.lineColor; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1, cfg.lineWidth * .8);
+  for (const f of G.fx) {
+    const p = (G.t - f.t0) / f.life; if (p > 1) continue;
+    const n = f.full ? 10 : 7; ctx.globalAlpha = 1 - p; ctx.beginPath();
+    for (let k = 0; k < n; k++) {
+      const a = f.full ? f.ang + k / n * TAU : f.ang + (k / (n - 1) - .5) * 1.9, j = .8 + .4 * hash(k + f.t0 * 13);
+      const r0 = f.size * (.25 + p * .8) * j, r1 = f.size * (.5 + p * 1.3) * j;
+      ctx.moveTo(f.x + Math.cos(a) * r0, f.y + Math.sin(a) * r0); ctx.lineTo(f.x + Math.cos(a) * r1, f.y + Math.sin(a) * r1);
+    }
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  G.fx = G.fx.filter(f => G.t - f.t0 < f.life);
+}
+// particles: flame tongues, smoke curls, ash flecks and wind swooshes – all drawn as pen strokes
+function updateParticles(dt) {
+  for (const p of G.parts) {
+    if (G.t < p.t0) continue;
+    const k = Math.exp(-(p.k || 0) * dt); p.vx *= k; p.vy *= k; p.vy += (p.g || 0) * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+  }
+  G.parts = G.parts.filter(p => G.t - p.t0 < p.life);
+}
+function drawParticles(ctx) {
+  const lw = cfg.lineWidth; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = cfg.lineColor;
+  for (const p of G.parts) {
+    const a = (G.t - p.t0) / p.life; if (a < 0) continue;
+    ctx.beginPath();
+    if (p.type === 'flame') { // a flickering tongue: round belly behind, wavy point in the direction the fire flows
+      if (Math.hypot(p.vx, p.vy) > 4) p.ang = Math.atan2(p.vy, p.vx);
+      const r = p.size * (.7 + 2 * a) * (1 - .5 * a * a), c = Math.cos(p.ang), s = Math.sin(p.ang);
+      const fl = Math.sin(G.t * 19 + p.seed) * .55, f2 = Math.sin(G.t * 13 + p.seed * 2) * .3;
+      const X = (lx, ly) => [p.x + c * lx - s * ly, p.y + s * lx + c * ly];
+      ctx.moveTo(...X(3 * r, fl * 1.3 * r));
+      ctx.bezierCurveTo(...X(2 * r, (fl - .2) * r), ...X(1.2 * r, -.7 * r + f2 * r), ...X(.1 * r, -.55 * r));
+      ctx.bezierCurveTo(...X(-.6 * r, -.45 * r), ...X(-.6 * r, .45 * r), ...X(.1 * r, .55 * r));
+      ctx.bezierCurveTo(...X(.9 * r, .7 * r + f2 * r), ...X(1.3 * r, .1 * r), ...X(1.8 * r, .45 * r + fl * .4 * r));
+      ctx.quadraticCurveTo(...X(2.2 * r, .5 * r), ...X(3 * r, fl * 1.3 * r));
+      ctx.globalAlpha = Math.pow(1 - a, 1.1) * .95; ctx.lineWidth = Math.max(.6, lw * .8 * (1 - a * .5)); ctx.stroke();
+      if (a < .5 && (p.seed | 0) % 2 === 0 && !cfg.lowPower) { ctx.globalAlpha = .2 * (1 - a / .5); glow(ctx, p.x, p.y, r * 2.6, cfg.lineColor); }
+    } else if (p.type === 'smoke') { // a loose spiral that grows and fades
+      const r = p.size * (.5 + a * 1.6);
+      for (let k = 0; k <= 16; k++) { const an = p.seed + k * .48 + a * 2, rr = r * k / 16; const x = p.x + Math.cos(an) * rr, y = p.y + Math.sin(an) * rr; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.globalAlpha = (1 - a) * .55; ctx.lineWidth = Math.max(.5, lw * .55); ctx.stroke();
+    } else if (p.type === 'ash') { // fleck tumbling upward
+      const an = p.seed + G.t * 4, l = p.size;
+      ctx.moveTo(p.x - Math.cos(an) * l, p.y - Math.sin(an) * l); ctx.lineTo(p.x + Math.cos(an) * l, p.y + Math.sin(an) * l);
+      ctx.globalAlpha = (1 - a) * .8; ctx.lineWidth = Math.max(.6, lw * .6); ctx.stroke();
+    } else if (p.type === 'ring') { // a smoke ring seen from the side
+      const r = p.size * (.45 + .55 * Math.min(1, a * 5)) * (1 + a * .25), wob = Math.sin(G.t * 4 + p.seed) * .06;
+      ctx.ellipse(p.x, p.y, r * (.3 + wob), r, Math.sin(G.t * 1.3 + p.seed) * .08, 0, TAU);
+      ctx.moveTo(p.x, p.y - r * .6); ctx.ellipse(p.x, p.y, r * .16, r * .6, 0, -Math.PI / 2, Math.PI / 2);
+      ctx.globalAlpha = Math.min(1, a * 8) * (1 - a) * .75; ctx.lineWidth = Math.max(.6, lw * .7); ctx.stroke();
+    } else if (p.type === 'heart') { // a little heart drifting up
+      const r = p.size * (.8 + a * .5), x = p.x + Math.sin(G.t * 3 + p.seed) * r * .5, y = p.y;
+      ctx.moveTo(x, y + r * .9);
+      ctx.bezierCurveTo(x - r * 1.35, y + r * .05, x - r * .85, y - r * 1.05, x, y - r * .35);
+      ctx.bezierCurveTo(x + r * .85, y - r * 1.05, x + r * 1.35, y + r * .05, x, y + r * .9);
+      ctx.globalAlpha = Math.min(1, a * 6) * (1 - a) * .9; ctx.lineWidth = Math.max(.6, lw * .75); ctx.stroke();
+    } else if (p.type === 'wind') { // a swoosh with a curl at its head
+      const an = Math.atan2(p.vy, p.vx) || p.ang || 0, c = Math.cos(an), s = Math.sin(an), l = p.size * (.6 + a * 1.2), w = p.size * .12;
+      const X = (lx, ly) => [p.x + c * lx - s * ly, p.y + s * lx + c * ly];
+      ctx.moveTo(...X(-l, 0));
+      ctx.bezierCurveTo(...X(-l * .5, -w * 2), ...X(-l * .1, w * 2), ...X(l * .3, 0));
+      ctx.quadraticCurveTo(...X(l * .5, -w * 3), ...X(l * .38, -w * 4.2));
+      ctx.globalAlpha = Math.sin(Math.PI * a) * .7; ctx.lineWidth = Math.max(.6, lw * .7); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function gustLines(x, y, ang, n, size, spread = .5) { // a burst of wind swooshes
+  for (let k = 0; k < n; k++) {
+    const a = ang + rand(-spread, spread), v = size * rand(2.5, 3.5), ox = rand(-1, 1) * size * .4, oy = rand(-1, 1) * size * .4;
+    G.parts.push({ type: 'wind', x: x + ox, y: y + oy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, k: 1.4, t0: G.t + rand(0, .12), life: rand(.6, .9), size: size * rand(.6, 1), ang: a });
+  }
+}
+function hearts(x, y, n, size) {
+  for (let k = 0; k < n; k++) G.parts.push({ type: 'heart', x: x + rand(-1, 1) * size, y, vx: rand(-.5, .5) * size, vy: -size * rand(1.6, 2.6), k: .7,
+    t0: G.t + k * .2, life: rand(1.4, 1.9), size: size * rand(.7, 1), seed: rand(0, TAU) });
+}
+function embers(c, n, flames) { // ash and little flames along a card's burn front
+  for (let k = 0; k < n; k++) {
+    const fp = c.frontPoint(rand(-1, 1)); if (!fp.inside) continue;
+    const s = c.fm;
+    if (flames && Math.random() < .55) G.parts.push({ type: 'flame', x: fp.x, y: fp.y, vx: rand(-.5, .5) * s, vy: -s * rand(4, 7), k: 1.5, t0: G.t, life: rand(.35, .6), size: s * rand(.5, .9), seed: rand(0, 1000), ang: -Math.PI / 2 });
+    else G.parts.push({ type: 'ash', x: fp.x, y: fp.y, vx: rand(-1, 1) * s * 2, vy: -s * rand(2, 5), k: .8, t0: G.t, life: rand(.8, 1.6), size: s * rand(.25, .5), seed: rand(0, TAU) });
+  }
+}
+
+/* ---------------------------- choreography (generators: one yield = one sim step) ---------------------------- */
+function* awaitP(p, until) {
+  let st = 0, val, err; p.then(v => { st = 1; val = v; }, e => { st = 2; err = e; });
+  while (!st) { if (until && until()) return { ok: false, aborted: true }; yield; }
+  return st === 1 ? { ok: true, value: val } : { ok: false, err };
+}
+const timer = s => { const end = G.t + s; return () => G.t > end; };
+
+function* steer(d, tgt, o = {}) { // fly toward a (possibly moving) point
+  const r = o.r ?? d.L * .1, tmax = o.t ?? 10; d.speedMul = o.s ?? 1; d.turnMul = o.turn ?? 1;
+  let t = 0;
+  for (;;) {
+    const p = typeof tgt === 'function' ? tgt() : tgt;
+    d.target.x = p.x; d.target.y = p.y;
+    const ref = o.ref === 'snout' ? d.snout() : o.ref === 'mouth' ? d.mouth() : d;
+    if (Math.hypot(p.x - ref.x, p.y - ref.y) < r) return true;
+    if (o.hit && o.hit()) return true;
+    if (o.until && o.until()) return false;
+    if ((t += G.dt) > tmax) return false;
+    yield;
+  }
+}
+function* follow(d, fn, o) { // chase a carrot that moves along a path
+  const lead = o.lead ?? d.u * 4; d.turnMul = o.turn ?? 2; let s = 0;
+  while (s < o.len) {
+    const p = fn(s); d.target.x = p[0]; d.target.y = p[1];
+    const dd = Math.hypot(p[0] - d.x, p[1] - d.y);
+    s += o.v * G.dt * clamp(2 - dd / lead, .1, 1.25);
+    d.speedMul = (o.v / d.base) * clamp(dd / lead, .6, 1.7);
+    if (o.on) o.on(s, o.len);
+    if (o.until && o.until()) return false;
+    yield;
+  }
+  return true;
+}
+// elliptical spiral around (cx,cy); radii rx,ry scaled from k0 to k1
+function* spiral(d, cx, cy, rx, ry, k0, k1, laps, dir, on) {
+  let ang = Math.atan2((d.y - cy) / ry, (d.x - cx) / rx), done = 0; const total = laps * TAU; d.turnMul = 3.5;
+  while (done < total) {
+    const p = done / total, k = lerp(k0, k1, smooth(p)), Rx = rx * k, Ry = ry * k, lead = d.u * 4;
+    const lr = Math.max(d.u, Math.hypot(Rx * Math.sin(ang), Ry * Math.cos(ang))), la = clamp(lead / lr, .1, 1.2);
+    const tx = cx + Math.cos(ang + dir * la) * Rx, ty = cy + Math.sin(ang + dir * la) * Ry;
+    d.target.x = tx; d.target.y = ty;
+    const dd = Math.hypot(tx - d.x, ty - d.y), v = d.base * 1.5, da = v / lr * G.dt * clamp(2 - dd / lead, .1, 1.25);
+    ang += dir * da; done += da; d.speedMul = 1.5 * clamp(dd / lead, .6, 1.7);
+    if (on) on(p);
+    yield;
+  }
+  if (on) on(1);
+}
+function coilRadii(d, c) {
+  return [Math.min(c.w / 2 + c.fm + d.u * 2.5, G.W / 2 - d.u), Math.min(c.h / 2 + c.fm + d.u * 2.5, G.H / 2 - d.u)];
+}
+const spinDir = (d, cx, cy) => ((d.x - cx) * Math.sin(d.heading) - (d.y - cy) * Math.cos(d.heading)) >= 0 ? 1 : -1;
+function freePoint(d, c) {
+  for (let k = 0; k < 14; k++) {
+    const p = { x: rand(.08, .92) * G.W, y: rand(.1, .9) * G.H };
+    if (c && insideRect(p, c.hx, c.hy, c.w + d.u * 6, c.h + d.u * 6)) continue;
+    if (G.shown.some(k => insideRect(p, k.hx, k.hy, k.w + d.u * 2, k.h + d.u * 2))) continue;
+    if (Math.hypot(p.x - d.x, p.y - d.y) < d.L * .3) continue;
+    return p;
+  }
+  return { x: rand(.1, .9) * G.W, y: rand(.1, .9) * G.H };
+}
+
+/* ---- idle play ---- */
+const IDLE = {
+  *wander(d, c, until) {
+    const n = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < n && !until(); i++) yield* steer(d, freePoint(d, c), { r: d.L * .12, s: rand(.7, 1.05), t: 7, until });
+  },
+  *orbit(d, c, until) { // slither around the picture frame
+    if (!c) return yield* IDLE.wander(d, c, until);
+    const m = c.fm + d.u * 2.2, rr = rrPath(c.hx, c.hy, c.w + 2 * m, c.h + 2 * m, d.u * 4), dir = Math.random() < .5 ? 1 : -1;
+    const st = rr.fn(nearestParam(rr, d.x, d.y) + dir * d.L * .08);
+    yield* steer(d, { x: st[0], y: st[1] }, { r: d.L * .1, t: 6, until }); if (until()) return;
+    const s1 = nearestParam(rr, d.x, d.y);
+    yield* follow(d, s => rr.fn(s1 + dir * s), { len: rr.len * rand(.35, .75), v: d.base * .95, lead: d.u * 4, turn: 2.5, until });
+  },
+  *boop(d, c, until) { // nudge the picture with the snout
+    if (!c) return yield* IDLE.wander(d, c, until);
+    const [nx, ny] = pickW([[1, 0], [-1, 0], [0, -1], [0, 1]], [2, 2, 1.3, 1]), tx = -ny, ty = nx;
+    const he = nx ? c.w / 2 : c.h / 2, ht = nx ? c.h / 2 : c.w / 2, off = rand(-.6, .6) * ht;
+    const E = { x: c.hx + nx * (he + c.fm) + tx * off, y: c.hy + ny * (he + c.fm) + ty * off };
+    const sd = rand(-1, 1) * d.L * .1;
+    yield* steer(d, { x: E.x + nx * d.L * .3 + tx * sd, y: E.y + ny * d.L * .3 + ty * sd }, { r: d.L * .1, t: 7, until }); if (until()) return;
+    d.jawT = .22;
+    const hit = yield* steer(d, E, { ref: 'snout', r: d.u * 1.2, s: 1.25, t: 3.5, hit: () => insideRect(d.snout(), c.x, c.y, c.w + c.fm * 2, c.h + c.fm * 2) });
+    d.jawT = .05;
+    if (hit && c.mode === 'spring') {
+      const imp = Math.min(G.W, G.H) * .35; c.vx -= nx * imp; c.vy -= ny * imp; c.vr += rand(.5, 1.1) * (Math.random() < .5 ? -1 : 1);
+      const s = d.snout(); impact(s.x, s.y, Math.atan2(ny, nx), d.u * 2.5, false);
+    }
+    const bt = rand(-.8, .8);
+    yield* steer(d, { x: E.x + (nx * .9 + tx * bt) * d.L * .45, y: E.y + (ny * .9 + ty * bt) * d.L * .45 }, { r: d.L * .15, t: 4, s: 1.1 });
+  },
+  *perch(d, c, until) { // lounge slowly along the top edge, with a yawn
+    if (!c) return yield* IDLE.wander(d, c, until);
+    const s = d.x < c.hx ? 1 : -1, y = c.hy - c.h / 2 - c.fm - d.u * .9, x0 = c.hx - s * c.w / 2;
+    yield* steer(d, { x: x0 - s * d.L * .2, y: y - d.L * .06 }, { r: d.L * .1, t: 7, until }); if (until()) return;
+    d.wiggleMul = .45; let yawned = false;
+    yield* follow(d, q => [x0 + s * q, y], { len: c.w + d.L * .15, v: d.base * .38, lead: d.u * 4, turn: 2, until,
+      on: (q, len) => { if (!yawned && q > len * .4) { yawned = true; d.jawT = .6; d.jawHold = 1.3; } } });
+    d.wiggleMul = 1;
+  },
+  *weave(d, c, until) { // pass behind the picture, then back in front of it
+    if (!c) return yield* IDLE.wander(d, c, until);
+    const s = d.x < c.hx ? 1 : -1, y1 = c.hy + c.h * rand(-.3, .1), y2 = c.hy + c.h * rand(-.1, .3);
+    const xa = c.hx - s * (c.w / 2 + d.L * .2), xb = c.hx + s * (c.w / 2 + d.L * .2), pad = c.fm + d.u * 3;
+    const out = () => !insideRect(d, c.x, c.y, c.w + pad * 2, c.h + pad * 2) &&
+      !G.shown.some(k => insideRect(d, k.x, k.y, k.w + k.fm * 2 + d.u * 3, k.h + k.fm * 2 + d.u * 3));
+    yield* steer(d, { x: xa, y: y1 }, { r: d.L * .1, t: 7, until }); if (until()) return;
+    let tt = 0; while (!out() && (tt += G.dt) < 4) yield;
+    d.z = -1;
+    yield* steer(d, { x: xb, y: y1 }, { r: d.L * .1, t: 7, s: 1.1 });
+    tt = 0; while (!out() && (tt += G.dt) < 4) yield;
+    d.z = 1;
+    yield* steer(d, { x: xb + s * d.L * .05, y: y2 }, { r: d.L * .12, t: 4, until }); if (until()) return;
+    yield* steer(d, { x: xa, y: y2 }, { r: d.L * .12, t: 7, until });
+  },
+};
+
+/* ---- the old picture leaves ---- */
+const EXITS = {
+  *push(d, c) { // charge and shove it off the page
+    c.mode = 'spring';
+    const cand = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const edge = e => { const dist = e[0] > 0 ? G.W - c.hx : e[0] < 0 ? c.hx : e[1] > 0 ? G.H - c.hy : c.hy; return 1 + 3 * clamp(1 - 2 * dist / (e[0] ? G.W : G.H), 0, 1); };
+    const [ex, ey] = pickW(cand, cand.map(e => (e[0] ? 3 : 1.2) * (((c.hx - d.x) * e[0] + (c.hy - d.y) * e[1]) > 0 ? 2 : 1) * edge(e)));
+    const px = -ey, py = ex, he = ex ? c.w / 2 : c.h / 2, hp = ex ? c.h / 2 : c.w / 2, pad = c.fm, off = rand(-.3, .3) * hp;
+    const C = { x: c.hx + px * off, y: c.hy + py * off };
+    yield* steer(d, { x: C.x - ex * (he + d.L * .55), y: C.y - ey * (he + d.L * .55) }, { r: d.L * .15, s: 1.15, t: 8 });
+    yield* steer(d, { x: C.x - ex * (he + d.L * .17), y: C.y - ey * (he + d.L * .17) }, { r: d.L * .07, s: .9, t: 6, turn: 1.6 });
+    d.jawT = .12;
+    const far = { x: C.x + ex * Math.max(G.W, G.H) * 2, y: C.y + ey * Math.max(G.W, G.H) * 2 };
+    let contact = false, t = 0;
+    for (;;) {
+      d.target.x = far.x; d.target.y = far.y; d.speedMul = contact ? 1.55 : 1.3; d.turnMul = 1.4;
+      const s = d.snout(), rel = (s.x - c.x) * ex + (s.y - c.y) * ey, lat = (s.x - c.x) * px + (s.y - c.y) * py;
+      if (!contact && ((rel > -(he + pad) && Math.abs(lat) < hp + d.u * 2) || rel > he)) {
+        contact = true; c.mode = 'fly'; d.jawT = .04; impact(s.x, s.y, Math.atan2(-ey, -ex), d.u * 3, false);
+      }
+      if (contact) {
+        const pen = rel + he + pad; if (pen > 0) { c.x += ex * pen; c.y += ey * pen; }
+        const hv = d.speed * (Math.cos(d.a) * ex + Math.sin(d.a) * ey), cvel = c.vx * ex + c.vy * ey;
+        if (pen > -d.u * 2 && hv > cvel) { c.vx += ex * (hv - cvel); c.vy += ey * (hv - cvel); }
+        c.vr += (-lat / hp) * 2.2 * G.dt;
+      }
+      if (c.offscreen() || (t += G.dt) > 12) break;
+      yield;
+    }
+    c.dead = true;
+  },
+  *drag(d, c) { // bite the top edge and fly away with it
+    c.mode = 'spring';
+    const s = d.x < c.hx ? 1 : -1, top = () => c.topCenter(), g = top();
+    yield* steer(d, { x: g.x - s * d.L * .55, y: g.y - d.L * .2 }, { r: d.L * .14, s: 1.1, t: 8 });
+    d.jawT = .5;
+    yield* steer(d, { x: g.x - s * d.L * .18, y: g.y - d.u * 1.5 }, { r: d.L * .08, t: 6, turn: 1.5 });
+    yield* steer(d, top, { ref: 'mouth', r: d.u * 1.3, s: .9, t: 4, turn: 1.8, hit: () => {
+      const m = d.mouth(), q = top(); return ((q.x - m.x) * Math.cos(d.a) + (q.y - m.y) * Math.sin(d.a)) < 0 && Math.hypot(q.x - m.x, q.y - m.y) < d.L * .12; } });
+    d.jawT = .1; c.attach(d);
+    const m = d.mouth(); impact(m.x, m.y, -Math.PI / 2, d.u * 2, true);
+    yield* steer(d, { x: g.x + s * G.W * .9, y: -G.H * .5 }, { r: d.L * .2, s: 1.25, t: 10, hit: () => c.offscreen() });
+    let t = 0; while (!c.offscreen() && (t += G.dt) < 6) yield;
+    c.dead = true;
+  },
+  *coil(d, c) { // wrap around it and squeeze it into nothing
+    c.mode = 'spring';
+    const cx = c.hx, cy = c.hy, [rx, ry] = coilRadii(d, c), dir = spinDir(d, cx, cy);
+    const ang = Math.atan2((d.y - cy) / ry, (d.x - cx) / rx) + dir * .6;
+    yield* steer(d, { x: cx + Math.cos(ang) * rx, y: cy + Math.sin(ang) * ry }, { r: d.L * .12, t: 7, s: 1.1 });
+    c.mode = 'static'; const r0 = c.rot; let puffed = false;
+    yield* spiral(d, cx, cy, rx, ry, 1, .3, 1.1, dir, p => {
+      const k = smooth((p - .3) / .7);
+      c.scale = Math.max(.001, 1 - k); c.rot = r0 + dir * k * k * 4; c.alpha = 1 - k * k * k;
+      c.x = lerp(c.x, cx, .1); c.y = lerp(c.y, cy, .1);
+      if (k > .98 && !puffed) { puffed = true; impact(cx, cy, 0, d.u * 3, true); }
+    });
+    c.dead = true; d.lastSpin = dir;
+  },
+};
+
+/* ---- the new picture arrives ---- */
+const ENTRIES = {
+  *carry(d, c) { // fly in from off-screen with the picture hanging from the jaws
+    c.frame = 0;
+    const s = d.x > G.W / 2 ? 1 : -1, off = c.w * .5 + c.h * .2 + d.u * 6;
+    const S = { x: s > 0 ? G.W + off : -off, y: G.H * rand(.12, .35) };
+    yield* steer(d, S, { r: d.L * .12, s: 1.5, t: 10 });
+    const hidden = () => { const m = d.mouth(); return m.x - c.w / 2 > G.W + 10 || m.x + c.w / 2 < -10 || m.y + c.h < -10; };
+    let t = 0; while (!hidden() && (t += G.dt) < 3) { d.target.x = S.x + s * G.W; d.target.y = S.y; yield; }
+    const m = d.mouth(); c.rot = 0; c.vr = 0; c.scale = 1; c.alpha = 1; c.x = m.x; c.y = m.y + c.h / 2;
+    c.attach(d); G.cards.push(c);
+    const T = () => ({ x: c.hx, y: c.hy - c.h / 2 }), t0 = T();
+    yield* steer(d, { x: t0.x + s * (c.w * .45 + d.L * .12), y: t0.y - G.H * .07 }, { r: d.L * .12, s: 1.15, t: 9 });
+    yield* steer(d, T, { ref: 'mouth', r: d.u * 1.5, s: .75, t: 5, turn: 1.6, hit: () => {
+      const m = d.mouth(), q = T(); return ((q.x - m.x) * Math.cos(d.a) + (q.y - m.y) * Math.sin(d.a)) < 0 && Math.hypot(q.x - m.x, q.y - m.y) < d.L * .15; } });
+    c.release(); c.frameAnim = true; d.jawT = .4; d.jawHold = .35;
+    yield* steer(d, { x: c.hx - s * G.W * .42, y: c.hy - c.h / 2 - G.H * .18 }, { r: d.L * .15, t: 5 });
+  },
+  *sketch(d, c) { // trace the frame with the snout, then the picture appears inside it
+    const m = c.fm, fw = c.w + 2 * m, fh = c.h + 2 * m, rr = rrPath(c.hx, c.hy, fw, fh, 0);
+    let s0 = 0, best = Infinity;
+    for (const k of [0, fw, fw + fh, 2 * fw + fh]) { const p = rr.fn(k), dd = (p[0] - d.x) ** 2 + (p[1] - d.y) ** 2; if (dd < best) { best = dd; s0 = k; } }
+    const dir = Math.random() < .5 ? 1 : -1;
+    Object.assign(c, { alpha: 0, frame: 0, frameStart: s0, frameDir: dir, sketching: true, mode: 'spring', x: c.hx, y: c.hy });
+    G.cards.push(c);
+    const P0 = rr.fn(s0), P1 = rr.fn(s0 + dir * 10), ex = (P1[0] - P0[0]) / 10, ey = (P1[1] - P0[1]) / 10;
+    yield* steer(d, { x: P0[0] - ex * d.L * .3, y: P0[1] - ey * d.L * .3 }, { r: d.L * .1, t: 8, s: 1.1 });
+    let wt = 0; while (G.cards.some(k => k !== c && k.tw) && (wt += G.dt) < 2.5) yield; // let the others make room
+    yield* steer(d, { x: P0[0] - ex * d.u * 4, y: P0[1] - ey * d.u * 4 }, { r: d.u * 2.5, t: 4, turn: 2 });
+    yield* follow(d, q => rr.fn(s0 + dir * q), { len: rr.len, v: d.base * 2.1, lead: d.u * 4.4, turn: 4,
+      on: q => { c.frame = clamp(q / rr.len, 0, 1); c.alpha = smooth(c.frame) * .35; } });
+    c.frame = 1; c.sketching = false; c.fadeIn = true;
+    const e = rr.fn(s0 + dir * (rr.len + Math.min(fw, fh) * .4));
+    yield* steer(d, { x: e[0] + (e[0] - c.hx) * .4, y: e[1] + (e[1] - c.hy) * .6 }, { r: d.L * .15, t: 4 });
+  },
+  *unfurl(d, c, afterCoil) { // the picture grows out of the middle of an uncoiling spiral
+    const cx = c.hx, cy = c.hy, [rx, ry] = coilRadii(d, c);
+    let dir = d.lastSpin || 1;
+    if (!afterCoil) {
+      dir = spinDir(d, cx, cy);
+      const ang = Math.atan2((d.y - cy) / ry, (d.x - cx) / rx) + dir * .6;
+      yield* steer(d, { x: cx + Math.cos(ang) * rx, y: cy + Math.sin(ang) * ry }, { r: d.L * .12, t: 7, s: 1.1 });
+      yield* spiral(d, cx, cy, rx, ry, 1, .3, .7, dir);
+    }
+    Object.assign(c, { mode: 'static', x: cx, y: cy, scale: .001, alpha: 0, rot: c.restRot - dir * 3, frame: 0 });
+    G.cards.push(c); impact(cx, cy, 0, d.u * 3, true);
+    yield* spiral(d, cx, cy, rx, ry, .3, 1.05, .9, dir, p => { const k = smooth(p); c.scale = Math.max(.001, k); c.rot = c.restRot - dir * (1 - k) * 3; c.alpha = clamp(p * 2.5, 0, 1); });
+    Object.assign(c, { vx: 0, vy: 0, vr: 0, mode: 'spring', frameAnim: true });
+    yield* steer(d, { x: d.x + Math.cos(d.heading) * d.L * .5, y: d.y + Math.sin(d.heading) * d.L * .5 }, { r: d.L * .15, t: 3 });
+  },
+};
+
+/* ---- European dragon: helpers ---- */
+const facing = d => Math.cos(d.heading) >= 0 ? 1 : -1;
+function* hold(d, dur, o = {}) { // hover (or stand) in place, facing left/right
+  const face = o.face ?? facing(d); let t = 0;
+  while ((t += G.dt) < dur) {
+    d.target.x = d.x + face * d.L; d.target.y = d.y; d.speedMul = o.s ?? .03; d.turnMul = 1;
+    if (o.on) o.on(t / dur);
+    if (o.until && o.until()) return false;
+    yield;
+  }
+  return true;
+}
+function sideFor(d, c) { // work from the dragon's side of the picture, unless the other side has far more room (+1 = left side, facing right)
+  const room = s => s > 0 ? c.hx - c.w / 2 : G.W - c.hx - c.w / 2, mine = d.x < c.hx ? 1 : -1;
+  return room(mine) >= d.u * 18 || room(mine) * 1.5 >= room(-mine) ? mine : -mine;
+}
+const hoverX = (d, x, s) => s > 0 ? Math.max(x, d.u * 13) : Math.min(x, G.W - d.u * 13); // keep the hovering body on screen
+const inX = (d, x) => clamp(x, d.u * 3, G.W - d.u * 3);
+function topGrips(c) { // two points on the top edge for the talons
+  const tc = c.topCenter(), ca = Math.cos(c.rot), sa = Math.sin(c.rot), k = c.w * c.scale * .16;
+  return [{ x: tc.x - ca * k, y: tc.y - sa * k }, { x: tc.x + ca * k, y: tc.y + sa * k }];
+}
+function* landOn(d, gy, xa, s, until) { // glide in low and touch down at xa, walking toward s
+  const H = d.u * EU_STAND;
+  yield* steer(d, () => ({ x: xa - s * d.L * .5, y: Math.max(d.u * 5, gy(xa) - H - d.L * .15) }), { r: d.L * .13, t: 7, until }); if (until()) return false; // stays on screen
+  yield* steer(d, () => ({ x: xa - s * d.u * 6, y: gy(xa) - H - d.u * .4 }), { r: d.u * 2.5, t: 6, s: .7, until }); if (until()) return false;
+  yield* steer(d, () => ({ x: xa, y: gy(xa) - H }), { r: d.u * 1.6, s: .45, t: 4, turn: 1.6, until }); if (until()) return false;
+  d.land(gy); return true;
+}
+function* restOnGround(d, s, until) { // stand for a moment: stretch the wings, yawn smoke or look around
+  const act = pick(['stretch', 'yawn', 'look']); let did = false;
+  yield* hold(d, rand(2, 3.2), { face: s, s: 0, until, on: q => {
+    if (act === 'stretch' && !did && q > .2) { did = true; d.stretch = 1.6; }
+    if (act === 'yawn' && !did && q > .3) { did = true; d.jawT = .7; d.jawHold = 1; }
+    if (act === 'yawn' && did && q > .55 && d.jawHold < .5 && !d.puffed) { d.puffed = true; d.puff(2); }
+    if (act === 'look') d.headLiftT = 2 + .8 * Math.sin(q * TAU * 1.5);
+  } });
+  d.puffed = false;
+}
+function* faceAndBreathe(d, c, P, s, dur, on) { // hover beside a card at P (facing s) and breathe fire into it
+  yield* steer(d, () => { const p = P(); return { x: inX(d, p.x - s * d.L * .4), y: p.y + d.L * .06 }; }, { r: d.L * .14, s: 1.1, t: 8 });
+  yield* steer(d, P, { r: d.u * 2, s: .55, t: 5, turn: 1.4 });
+  d.headLiftT = .9;
+  yield* hold(d, .5, { face: s, on: () => { d.jawT = .3; } }); // draws breath
+  const [lx, ly] = rot(d.x - c.x, d.y - c.y, -c.rot); c.burn.dir = norm(lx, ly);
+  d.breathe(dur + .15);
+  yield* hold(d, dur + .35, { face: s, on: q => {
+    c.burn.p = smooth(clamp((q * (dur + .35) - .2) / dur, 0, 1));
+    const fp = c.frontPoint(0), m = d.mouth(); d.fireReach = Math.hypot(fp.x - m.x, fp.y - m.y) + d.u * 2;
+    if (c.burn.p > 0 && c.burn.p < 1) embers(c, Math.random() < G.dt * 45 ? 1 : 0, true);
+    if (on) on(q);
+  } });
+  d.headLiftT = 0;
+}
+
+/* ---- European dragon: idle play ---- */
+const EU_IDLE = {
+  wander: IDLE.wander,
+  weave: IDLE.weave,
+  *soar(d, c, until) { // wide lazy loops, mostly gliding
+    const cx = G.W * rand(.4, .6), cy = G.H * rand(.4, .6), rx = G.W * rand(.28, .38), ry = G.H * rand(.24, .34), R = (rx + ry) / 2;
+    const dir = spinDir(d, cx, cy), a0 = Math.atan2((d.y - cy) / ry, (d.x - cx) / rx);
+    d.gliding = true; d.glideT = 3;
+    yield* follow(d, q => { const a = a0 + dir * q / R; return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]; },
+      { len: R * TAU * rand(.45, .8), v: d.base * .95, lead: d.u * 6, turn: 1.2, until });
+  },
+  *perch(d, c, until) { // land on the top of a frame, walk along it, rest, take off
+    if (!c || c.w < d.u * 16 || c.hy - c.h / 2 - c.fm < d.u * 10) return yield* EU_IDLE.inspect(d, c, until); // too small, or no headroom
+    const s = d.x < c.hx ? 1 : -1, H = d.u * EU_STAND, top = () => c.y - (c.h / 2 + c.fm) * c.scale;
+    const gy = x => Math.abs(x - c.x) < c.w * c.scale / 2 + c.fm ? top() : null;
+    const xa = c.hx - s * (c.w / 2 - d.u * 12.5), xb = xa + s * Math.max(0, c.w - d.u * 14) * rand(.35, .8);
+    try {
+      if (!(yield* landOn(d, gy, xa, s, until))) return;
+      yield* follow(d, q => [xa + s * q, top() - H], { len: Math.abs(xb - xa), v: d.base * .18, lead: d.u * 2.5, turn: 2, until }); if (until()) return;
+      yield* restOnGround(d, s, until);
+    } finally { d.takeoff(); }
+    yield* steer(d, { x: d.x + s * d.L * .5, y: d.y - d.L * .45 }, { r: d.L * .15, t: 3 });
+  },
+  *stroll(d, c, until) { // touch down on the bottom of the screen and walk a while
+    const H = d.u * EU_STAND, gy = () => G.H - d.u * .4, s = d.x < G.W / 2 ? 1 : -1;
+    const m0 = d.u * 17, xa = s > 0 ? m0 + G.W * rand(0, .15) : G.W - m0 - G.W * rand(0, .15); // whole body on screen
+    const xb = clamp(xa + s * G.W * rand(.18, .32), d.u * 6, G.W - d.u * 6);
+    try {
+      if (!(yield* landOn(d, gy, xa, s, until))) return;
+      yield* follow(d, q => [xa + s * q, gy() - H], { len: Math.abs(xb - xa), v: d.base * .2, lead: d.u * 2.5, turn: 2, until }); if (until()) return;
+      yield* restOnGround(d, s, until);
+    } finally { d.takeoff(); }
+    yield* steer(d, { x: d.x + s * d.L * .5, y: d.y - d.L * .5 }, { r: d.L * .15, t: 3 });
+  },
+  *inspect(d, c, until) { // hover beside a picture and take a good look, snorting smoke
+    if (!c) return yield* EU_IDLE.soar(d, c, until);
+    const s = sideFor(d, c), P = { x: hoverX(d, c.hx - s * (c.w / 2 + c.fm + d.u * 6.5), s), y: c.hy - c.h * rand(.05, .3) };
+    yield* steer(d, { x: inX(d, P.x - s * d.L * .4), y: P.y + d.L * .08 }, { r: d.L * .13, t: 7, until }); if (until()) return;
+    yield* steer(d, P, { r: d.u * 2.2, s: .55, t: 5, turn: 1.4, until }); if (until()) return;
+    d.headLiftT = 1.1; let puffed = false;
+    yield* hold(d, rand(1.8, 2.8), { face: s, until, on: q => { if (!puffed && q > .45) { puffed = true; d.puff(3); } } });
+    d.headLiftT = 0;
+    yield* steer(d, { x: P.x - s * d.L * .35, y: P.y - d.L * .4 }, { r: d.L * .15, t: 4 });
+  },
+  *roar(d, c, until) { // rear up and breathe a jet of fire into the open
+    yield* steer(d, freePoint(d, c), { r: d.L * .12, t: 7, until }); if (until()) return;
+    const s = d.x < G.W / 2 ? 1 : -1; d.headLiftT = 1.6; // toward the open side of the screen
+    yield* hold(d, .7, { face: s, on: () => { d.jawT = .35; } });
+    d.breathe(1.3, d.u * 16);
+    yield* hold(d, 1.45, { face: s });
+    d.headLiftT = 0; d.flapHard = .6;
+    yield* steer(d, { x: d.x + s * d.L * .5, y: d.y - d.L * .15 }, { r: d.L * .15, t: 3 });
+  },
+};
+
+/* ---- European dragon: the old picture leaves ---- */
+const EU_EXITS = {
+  *snatch(d, c) { // swoop down, seize the top edge in the hind talons and carry it off
+    c.mode = 'spring';
+    const s = d.x < c.hx ? 1 : -1, top = () => c.topCenter(), g = top();
+    yield* steer(d, { x: g.x - s * d.L * .6, y: g.y - d.L * .45 }, { r: d.L * .15, s: 1.1, t: 8 });
+    d.grip = () => topGrips(c);
+    const aim = () => { const q = top(); return { x: q.x + s * d.u * 10, y: q.y - d.u * 3.5 }; };
+    yield* steer(d, aim, { r: d.u * 1.5, s: .85, t: 5, turn: 1.4, hit: () => { const p = d.gripPoint(), q = top(); return Math.hypot(p.x - q.x, p.y - q.y) < d.u * 1.6; } });
+    c.attach(d, () => d.gripPoint()); d.load = true; d.flapHard = 1.2;
+    const p = d.gripPoint(); impact(p.x, p.y, -Math.PI / 2, d.u * 2, true);
+    yield* steer(d, { x: g.x + s * G.W * .9, y: -G.H * .5 }, { r: d.L * .2, s: 1.15, t: 10, hit: () => c.offscreen() });
+    let t = 0; while (!c.offscreen() && (t += G.dt) < 6) yield;
+    c.dead = true; d.grip = null; d.load = false;
+  },
+  *burn(d, c) { // breathe fire until the picture burns away to ash
+    c.mode = 'spring'; c.burn = { p: 0, dir: [1, 0], rev: false, seed: rand(0, 50) };
+    const s = sideFor(d, c);
+    yield* faceAndBreathe(d, c, () => ({ x: hoverX(d, c.hx - s * (c.w / 2 + c.fm + d.u * 7), s), y: c.hy - c.h * .08 - d.u * .5 }), s, 2.6);
+    c.dead = true; embers(c, 0);
+    for (let k = 0; k < 14; k++) G.parts.push({ type: 'ash', x: c.x + rand(-.4, .4) * c.w, y: c.y + rand(-.4, .4) * c.h, vx: rand(-1, 1) * c.fm * 3, vy: -c.fm * rand(2, 6), k: .8, t0: G.t, life: rand(1, 2), size: c.fm * rand(.25, .5), seed: rand(0, TAU) });
+    d.flapHard = .6;
+    yield* steer(d, { x: d.x - s * d.L * .1, y: d.y - d.L * .45 }, { r: d.L * .15, t: 3 });
+  },
+  *gust(d, c) { // hover beside it and beat the wings until it blows away
+    c.mode = 'spring';
+    const s = sideFor(d, c), P = () => ({ x: hoverX(d, c.hx - s * (c.w / 2 + c.fm + d.u * 10), s), y: c.hy - d.u * 1.5 });
+    yield* steer(d, () => { const p = P(); return { x: inX(d, p.x - s * d.L * .35), y: p.y + d.L * .08 }; }, { r: d.L * .14, s: 1.1, t: 8 });
+    yield* steer(d, P, { r: d.u * 2.2, s: .55, t: 5, turn: 1.4 });
+    d.headLiftT = .8; d.flapHard = 99;
+    const b0 = d.beats; let seen = 0, blown = false, t = 0;
+    for (;;) {
+      d.target.x = d.x + s * d.L; d.target.y = d.y; d.speedMul = .03; d.turnMul = 1;
+      const nb = d.beats - b0;
+      if (nb > seen) {
+        seen = nb; const o = d.local(-4, 1.2);
+        gustLines(o.x + s * d.u * 3, o.y, s > 0 ? 0 : Math.PI, 8, d.u * 4, .35);
+        if (!blown) { c.vx += s * d.u * 30 * nb; c.vr += s * .7 * nb; }
+        if (!blown && nb >= 3) {
+          blown = true; c.mode = 'fly'; c.vx = s * G.W * rand(.7, 1); c.vy = -G.H * rand(.1, .35); c.vr = s * rand(2.5, 4.5);
+          impact(c.x - s * c.w / 2, c.y, s > 0 ? 0 : Math.PI, d.u * 3, false);
+        }
+      }
+      if ((blown && c.offscreen()) || (t += G.dt) > 10) break;
+      yield;
+    }
+    c.dead = true; d.flapHard = 0; d.headLiftT = 0;
+    yield* steer(d, { x: d.x - s * d.L * .2, y: d.y - d.L * .45 }, { r: d.L * .15, t: 3 });
+  },
+};
+
+/* ---- European dragon: the new picture arrives ---- */
+const EU_ENTRIES = {
+  *deliver(d, c) { // fly in with the picture in the hind talons and set it down
+    c.frame = 0;
+    const s = d.x > G.W / 2 ? 1 : -1, off = c.w * .5 + c.h * .3 + d.u * 10;
+    const S0 = { x: s > 0 ? G.W + off : -off, y: G.H * rand(.08, .25) };
+    yield* steer(d, S0, { r: d.L * .14, s: 1.5, t: 10 });
+    const hidden = () => { const g = d.gripPoint(); return g.x - c.w / 2 > G.W + 10 || g.x + c.w / 2 < -10 || g.y + c.h < -10; };
+    let t = 0; while (!hidden() && (t += G.dt) < 3) { d.target.x = S0.x + s * G.W; d.target.y = S0.y; yield; }
+    const g = d.gripPoint(); Object.assign(c, { rot: 0, vr: 0, scale: 1, alpha: 1, x: g.x, y: g.y + c.h / 2 });
+    c.attach(d, () => d.gripPoint()); G.cards.push(c); d.grip = () => topGrips(c); d.load = true;
+    const face = -s, T = () => ({ x: c.hx, y: c.hy - c.h / 2 }), aim = () => { const q = T(); return { x: q.x + face * d.u * 10, y: q.y - d.u * 3.5 }; };
+    yield* steer(d, () => { const a = aim(); return { x: a.x - face * d.L * .35, y: a.y - G.H * .06 }; }, { r: d.L * .14, s: 1.1, t: 9 });
+    yield* steer(d, aim, { r: d.u * 1.6, s: .5, t: 5, turn: 1.5, hit: () => {
+      const p = d.gripPoint(), q = T(); return Math.hypot(p.x - q.x, p.y - q.y) < d.u * 1.6 || ((q.x - p.x) * face < 0 && Math.hypot(p.x - q.x, p.y - q.y) < d.L * .15); } });
+    c.release(); c.frameAnim = true; d.grip = null; d.load = false; d.flapHard = .8;
+    const q = T(); impact(q.x, q.y, -Math.PI / 2, d.u * 2, false);
+    yield* steer(d, { x: c.hx + face * G.W * .4, y: c.hy - c.h / 2 - G.H * .2 }, { r: d.L * .15, t: 5 });
+  },
+  *forge(d, c) { // breathe fire into the empty space – the picture appears where the flames sweep
+    const s = sideFor(d, c);
+    Object.assign(c, { mode: 'spring', x: c.hx, y: c.hy, alpha: 1, frame: 1, burn: { p: 0, dir: [-s, 0], rev: true, seed: rand(0, 50) } });
+    G.cards.push(c);
+    const P = () => ({ x: hoverX(d, c.hx - s * (c.w / 2 + c.fm + d.u * 7.5), s), y: c.hy - d.u * 1.2 });
+    yield* steer(d, () => { const p = P(); return { x: inX(d, p.x - s * d.L * .45), y: p.y + d.L * .06 }; }, { r: d.L * .14, s: 1.1, t: 8 });
+    let wt = 0; while (G.cards.some(k => k !== c && k.tw) && (wt += G.dt) < 2.5) yield; // let the others make room
+    yield* faceAndBreathe(d, c, P, s, 2.4);
+    c.burn = null;
+    yield* steer(d, { x: d.x - s * d.L * .15, y: d.y - d.L * .45 }, { r: d.L * .15, t: 3 });
+  },
+  *unveil(d, c) { // hover over the spot with wings beating slowly; the picture appears beneath them
+    const s = d.x < c.hx ? 1 : -1;
+    Object.assign(c, { mode: 'spring', x: c.hx, y: c.hy, alpha: 0, frame: 0, frameStart: 0, frameDir: 1 });
+    G.cards.push(c);
+    const P = () => ({ x: c.hx + s * d.u * 7, y: c.hy - d.u * 2 });
+    yield* steer(d, () => { const p = P(); return { x: inX(d, p.x - s * d.L * .45), y: p.y + d.L * .05 }; }, { r: d.L * .14, t: 8, s: 1.1 });
+    let wt = 0; while (G.cards.some(k => k !== c && k.tw) && (wt += G.dt) < 2.5) yield;
+    yield* steer(d, P, { r: d.u * 2.2, s: .55, t: 5, turn: 1.4 });
+    d.slowFlap = 1; d.headLiftT = 1;
+    yield* hold(d, 2.6, { face: s, on: q => { c.alpha = smooth((q - .1) / .7); c.frame = smooth((q - .3) / .7); } });
+    c.alpha = 1; c.frame = 1; d.slowFlap = 0; d.flapHard = 1; d.headLiftT = 0;
+    const o = d.local(-5, .8); gustLines(o.x, o.y + d.u * 2, Math.PI / 2, 12, d.u * 4, 1.2);
+    c.vy += G.H * .15; c.vr += rand(-.3, .3);
+    yield* steer(d, { x: d.x + s * d.L * .35, y: d.y - G.H * .4 }, { r: d.L * .15, t: 4 });
+  },
+};
+
+/* ---- more acts ---- */
+function smokeRing(d, size, dist) { // blow a smoke ring from the snout; it drifts `dist` forward and hangs there
+  const p = d.snout(), k = 1.4, v = (dist || d.u * 10) * k;
+  const r = { type: 'ring', x: p.x, y: p.y, vx: Math.cos(d.ha) * v, vy: Math.sin(d.ha) * v, k, t0: G.t, life: dist ? 5 : 2.4, size: d.u * size, seed: rand(0, TAU) };
+  G.parts.push(r); return r;
+}
+function* fallTo(c, y, g) { // a picture in free fall (mode 'fly') until it reaches y
+  let t = 0; while (c.y < y && (t += G.dt) < 4) { c.vy += g * G.dt; yield; }
+}
+function* biteTop(d, c, s) { // take the top edge of a picture in the jaws
+  const top = () => c.topCenter(), g = top();
+  yield* steer(d, { x: g.x - s * d.L * .55, y: g.y - d.L * .2 }, { r: d.L * .14, s: 1.1, t: 8 });
+  d.jawT = .5;
+  yield* steer(d, { x: g.x - s * d.L * .18, y: g.y - d.u * 1.5 }, { r: d.L * .08, t: 6, turn: 1.5 });
+  yield* steer(d, top, { ref: 'mouth', r: d.u * 1.3, s: .9, t: 4, turn: 1.8, hit: () => {
+    const m = d.mouth(), q = top(); return ((q.x - m.x) * Math.cos(d.a) + (q.y - m.y) * Math.sin(d.a)) < 0 && Math.hypot(q.x - m.x, q.y - m.y) < d.L * .12; } });
+  d.jawT = .1; c.attach(d);
+  const m = d.mouth(); impact(m.x, m.y, -Math.PI / 2, d.u * 2, true);
+}
+function loopPath(d, R) { // a circle that starts at the dragon and curls upward from its heading
+  const h = d.heading, nx = Math.sin(h), ny = -Math.cos(h), C = { x: d.x + nx * R, y: d.y + ny * R }, a0 = Math.atan2(-ny, -nx);
+  const dir = (-Math.sin(a0) * Math.cos(h) + Math.cos(a0) * Math.sin(h)) >= 0 ? 1 : -1;
+  return q => [C.x + Math.cos(a0 + dir * q / R) * R, C.y + Math.sin(a0 + dir * q / R) * R];
+}
+
+Object.assign(IDLE, {
+  *loop(d, c, until) { // a loop-the-loop in open air
+    yield* steer(d, freePoint(d, c), { r: d.L * .12, t: 7, until }); if (until()) return;
+    const R = d.u * rand(7, 9.5), fn = loopPath(d, R), len = TAU * R * 1.05;
+    yield* follow(d, fn, { len, v: d.base * 1.25, lead: d.u * 3.5, turn: 4, until, on: q => { if (q > len * .45 && q < len * .5) { d.jawT = .5; d.jawHold = .4; } } });
+  },
+  *chase(d, c, until) { // spin round after its own tail, then fly off a bit dizzy
+    yield* steer(d, freePoint(d, c), { r: d.L * .12, t: 7, until }); if (until()) return;
+    const R = d.u * rand(5, 6.5), fn = loopPath(d, R), len = TAU * R * rand(1.8, 2.4);
+    let snaps = 0;
+    yield* follow(d, fn, { len, v: d.base * 1.35, lead: d.u * 3, turn: 4.5, until, on: q => { if (q > (snaps + .6) * TAU * R) { snaps++; d.jawT = .6; d.jawHold = .2; } } });
+    if (until()) return;
+    d.wiggleMul = 2.2;
+    yield* steer(d, freePoint(d, c), { r: d.L * .15, s: .7, t: 3, until });
+    d.wiggleMul = 1;
+  },
+});
+Object.assign(EXITS, {
+  *gulp(d, c) { // open wide and swallow it whole
+    c.mode = 'spring';
+    const s = d.x < c.hx ? 1 : -1;
+    yield* steer(d, { x: c.hx - s * (c.w / 2 + d.L * .4), y: c.hy }, { r: d.L * .13, s: 1.1, t: 8 });
+    d.jawT = 1.05;
+    yield* steer(d, { x: c.hx, y: c.hy }, { ref: 'mouth', r: Math.min(c.w, c.h) * .5, s: .9, t: 5, turn: 1.6 });
+    c.mode = 'static'; const x0 = c.x, y0 = c.y, s0 = c.scale, r0 = c.rot; let t = 0;
+    while ((t += G.dt) < .8) { // sucked into the mouth
+      const k = smooth(t / .8), m = d.mouth();
+      d.target.x = d.x + Math.cos(d.heading) * d.L; d.target.y = d.y + Math.sin(d.heading) * d.L; d.speedMul = .6;
+      c.x = lerp(x0, m.x, k); c.y = lerp(y0, m.y, k); c.scale = Math.max(.001, s0 * (1 - k)); c.rot = r0 + s * k * 2.5;
+      yield;
+    }
+    c.dead = true; d.jawT = .05; d.wiggleMul = 1.8;
+    const m = d.mouth(); impact(m.x, m.y, d.heading, d.u * 2, false);
+    yield* steer(d, { x: d.x + Math.cos(d.heading) * d.L * .5, y: d.y - d.L * .2 }, { r: d.L * .15, t: 3 });
+  },
+  *toss(d, c) { // grab it, swing round once and fling it away
+    c.mode = 'spring';
+    const s = d.x < c.hx ? 1 : -1;
+    yield* biteTop(d, c, s);
+    yield* steer(d, { x: c.x + s * d.L * .3, y: c.y - d.L * .25 }, { r: d.L * .1, s: 1.2, t: 4 });
+    const R = d.u * 9, fn = loopPath(d, R);
+    yield* follow(d, fn, { len: TAU * R * .8, v: d.base * 1.5, lead: d.u * 3.5, turn: 4 });
+    const v = Math.max(d.speed, d.base) * 1.6;
+    c.release(); c.mode = 'fly'; c.vx = Math.cos(d.heading) * v; c.vy = Math.sin(d.heading) * v - G.H * .4; c.vr = rand(3, 5) * (Math.random() < .5 ? -1 : 1);
+    d.jawT = .6; d.jawHold = .3; const m = d.mouth(); impact(m.x, m.y, d.heading, d.u * 2.5, false);
+    let t = 0; while (!c.offscreen() && (t += G.dt) < 5) { c.vy += G.H * 1.4 * G.dt; d.target.x = d.x + Math.cos(d.heading) * d.L; d.target.y = d.y; yield; }
+    c.dead = true;
+  },
+});
+Object.assign(ENTRIES, {
+  *fling(d, c) { // fly in with it in the jaws and toss it into place – it springs home with a wobble
+    c.frame = 0;
+    const s = d.x > G.W / 2 ? 1 : -1, off = c.w * .5 + c.h * .2 + d.u * 6;
+    const S = { x: s > 0 ? G.W + off : -off, y: G.H * rand(.15, .4) };
+    yield* steer(d, S, { r: d.L * .12, s: 1.5, t: 10 });
+    const hidden = () => { const m = d.mouth(); return m.x - c.w / 2 > G.W + 10 || m.x + c.w / 2 < -10 || m.y + c.h < -10; };
+    let t = 0; while (!hidden() && (t += G.dt) < 3) { d.target.x = S.x + s * G.W; d.target.y = S.y; yield; }
+    const m = d.mouth(); Object.assign(c, { rot: 0, vr: 0, scale: 1, alpha: 1, x: m.x, y: m.y + c.h / 2 });
+    c.attach(d); G.cards.push(c);
+    yield* steer(d, { x: c.hx, y: c.hy - c.h * .3 }, { ref: 'mouth', r: Math.max(c.w, c.h) * .45 + d.u * 4, s: 1.2, t: 7 });
+    c.release(); c.vr += -s * rand(2.5, 4); c.frameAnim = true; d.jawT = .5; d.jawHold = .3;
+    const q = d.mouth(); impact(q.x, q.y, d.heading, d.u * 2.5, false);
+    yield* steer(d, { x: d.x + Math.cos(d.heading) * d.L * .5, y: d.y - G.H * .2 }, { r: d.L * .15, t: 4 });
+  },
+  *pop(d, c) { // loop over the empty spot and snap the jaws – the picture pops into being
+    const cx = c.hx, cy = c.hy, R = Math.min(c.w, c.h) * .25 + d.u * 4;
+    yield* steer(d, { x: cx, y: cy + R }, { r: d.L * .12, s: 1.1, t: 8 });
+    let wt = 0; while (G.cards.some(k => k !== c && k.tw) && (wt += G.dt) < 2.5) yield; // let the others make room
+    yield* spiral(d, cx, cy, R, R, 1.3, .8, 1, spinDir(d, cx, cy));
+    d.jawT = .8; d.jawHold = .3;
+    Object.assign(c, { mode: 'spring', x: cx, y: cy, vx: 0, vy: 0, scale: .02, alpha: 1, frame: 0, frameAnim: true, rot: c.restRot, vr: rand(2, 4) * (Math.random() < .5 ? -1 : 1) });
+    G.cards.push(c); impact(cx, cy, 0, d.u * 4, true);
+    yield* steer(d, { x: d.x + Math.cos(d.heading) * d.L * .5, y: d.y - d.L * .3 }, { r: d.L * .15, t: 3 });
+  },
+});
+
+Object.assign(EU_IDLE, {
+  *rings(d, c, until) { // hover and blow smoke rings
+    yield* steer(d, freePoint(d, c), { r: d.L * .12, t: 7, until }); if (until()) return;
+    const s = d.x < G.W / 2 ? 1 : -1, n = 2 + Math.floor(Math.random() * 3), dur = .8 + n * .9; let k = 0;
+    d.headLiftT = .8;
+    yield* hold(d, dur, { face: s, until, on: q => { if (q * dur - .6 > k * .9 && k < n) { k++; smokeRing(d, rand(1.3, 1.8)); d.jawT = .5; d.jawHold = .25; } } });
+    d.headLiftT = 0;
+  },
+  *dive(d, c, until) { // a steep dive to skim the bottom of the screen, then climb away
+    const s = d.x < G.W / 2 ? 1 : -1, x0 = clamp(d.x, G.W * .15, G.W * .85), yb = G.H - d.u * 5;
+    yield* steer(d, { x: x0, y: G.H * .15 }, { r: d.L * .15, t: 6, until }); if (until()) return;
+    d.gliding = true; d.glideT = 3;
+    const xs = clamp(x0 + s * G.W * .2, d.u * 6, G.W - d.u * 6), len = clamp(s > 0 ? G.W - d.u * 6 - xs : xs - d.u * 6, 0, G.W * .25);
+    yield* steer(d, { x: xs, y: yb }, { r: d.u * 4, s: 1.6, t: 5, turn: 1.3, until }); if (until()) return;
+    if (len > d.u * 4) yield* follow(d, q => [xs + s * q, yb], { len, v: d.base * 1.3, lead: d.u * 5, turn: 2, until }); if (until()) return;
+    d.flapHard = 1.2; gustLines(d.x, G.H - d.u, -Math.PI / 2, 6, d.u * 3, .8);
+    yield* steer(d, { x: d.x + s * d.L * .5, y: G.H * .3 }, { r: d.L * .15, t: 4, until });
+  },
+});
+Object.assign(EU_EXITS, {
+  *topple(d, c) { // land on top of the frame, stomp, and tip it over
+    c.mode = 'spring';
+    if (c.w < d.u * 16 || c.hy - c.h / 2 - c.fm < d.u * 3.4) return yield* EU_EXITS.gust(d, c); // too small, or no headroom
+    const s = d.x < c.hx ? 1 : -1, top = () => c.y - (c.h / 2 + c.fm) * c.scale;
+    const gy = x => Math.abs(x - c.x) < c.w * c.scale / 2 + c.fm ? top() : null;
+    try {
+      if (yield* landOn(d, gy, c.hx - s * (c.w / 2 - d.u * 12.5), s, () => false)) {
+        let n = 0;
+        yield* hold(d, 1.9, { face: s, s: 0, on: q => {
+          if (q > .15 + n * .28 && n < 3) {
+            n++; d.headLiftT = 1.6; d.jawT = .4; d.jawHold = .15; c.vy += G.H * .12; c.vr += s * .25 * n;
+            const f = d.legs[3]; impact(f.fx, f.fy, Math.PI / 2, d.u * 2.5, false);
+          } else if (d.headLiftT > 1.5 && q > .1 + n * .28) d.headLiftT = .5;
+        } });
+      }
+    } finally { d.takeoff(); }
+    d.flapHard = 1.2; c.mode = 'fly'; c.vx = s * G.W * .06; c.vy = -G.H * .05; c.vr = s * 1.6;
+    let t = 0;
+    while (!c.offscreen() && (t += G.dt) < 5) {
+      c.vy += G.H * 1.5 * G.dt; c.vr += s * 1.5 * G.dt;
+      d.target.x = d.x + s * d.L * .5; d.target.y = c.hy - c.h / 2 - G.H * .3; d.speedMul = .8;
+      yield;
+    }
+    c.dead = true;
+  },
+});
+Object.assign(EU_ENTRIES, {
+  *drop(d, c) { // fly high over the spot and let go – it falls into place and bounces
+    c.frame = 0;
+    const s = d.x > G.W / 2 ? 1 : -1, off = c.w * .5 + c.h * .3 + d.u * 10;
+    const S0 = { x: s > 0 ? G.W + off : -off, y: G.H * rand(.05, .15) };
+    yield* steer(d, S0, { r: d.L * .14, s: 1.5, t: 10 });
+    const hidden = () => { const g = d.gripPoint(); return g.x - c.w / 2 > G.W + 10 || g.x + c.w / 2 < -10 || g.y + c.h < -10; };
+    let t = 0; while (!hidden() && (t += G.dt) < 3) { d.target.x = S0.x + s * G.W; d.target.y = S0.y; yield; }
+    const g = d.gripPoint(); Object.assign(c, { rot: 0, vr: 0, scale: 1, alpha: 1, x: g.x, y: g.y + c.h / 2 });
+    c.attach(d, () => d.gripPoint()); G.cards.push(c); d.grip = () => topGrips(c); d.load = true;
+    const face = -s, yTop = Math.max(d.u * 6, c.hy - c.h / 2 - G.H * .28), aim = () => ({ x: c.hx + face * d.u * 10, y: yTop - d.u * 3.5 });
+    yield* steer(d, aim, { r: d.u * 2, s: .9, t: 8, turn: 1.4, hit: () => { const p = d.gripPoint(); return Math.abs(p.x - c.hx) < d.u * 2 && Math.abs(p.y - yTop) < d.u * 4; } });
+    yield* hold(d, .4, { face }); // takes aim
+    c.release(); c.mode = 'fly'; c.vx = 0; c.vy = 0; c.vr = rand(-.25, .25); d.grip = null; d.load = false; d.flapHard = .8;
+    yield* fallTo(c, c.hy, G.H * 2.4);
+    c.mode = 'spring'; c.frameAnim = true; c.vr += rand(-.6, .6);
+    impact(c.x, c.y + c.h / 2, -Math.PI / 2, d.u * 3, false);
+    gustLines(c.x - c.w / 2, c.y + c.h / 2, Math.PI, 3, d.u * 3, .3); gustLines(c.x + c.w / 2, c.y + c.h / 2, 0, 3, d.u * 3, .3);
+    yield* steer(d, { x: d.x + face * G.W * .3, y: d.y - G.H * .1 }, { r: d.L * .15, t: 4 });
+  },
+});
+
+/* ---- which table each kind of dragon plays from ---- */
+function acts(d) {
+  return d.kind === 'european'
+    ? { exits: [cfg.euExits, EU_EXITS], entries: [cfg.euEntries, EU_ENTRIES], idles: [cfg.euIdles, EU_IDLE], first: 'forge' }
+    : { exits: [cfg.exits, EXITS], entries: [cfg.entries, ENTRIES], idles: [cfg.idles, IDLE], first: 'sketch' };
+}
+function idleOpts(d) { const [list, table] = acts(d).idles, o = (list || []).filter(k => table[k]); return o.length ? o : ['wander']; }
+
+function* play(d, until, end) { // play until until(): solo acts, and now and then a game with another dragon
+  const table = acts(d).idles[1], brk = () => until() || !!d.invite;
+  Object.assign(d, { playUntil: until, playEnd: end, duet: null, invite: null });
+  let last = '';
+  try {
+    while (!until()) {
+      if (d.invite) { const g = d.invite; d.invite = null; yield* g; d.reset(); continue; } // invited to a game
+      if (yield* maybeDuet(d)) { d.reset(); continue; }
+      const opts = idleOpts(d), c = pickCard();
+      let b = pick(opts); if (b === last && opts.length > 1) b = pick(opts.filter(x => x !== last));
+      last = b; yield* table[b](d, c, d.main ? brk : () => brk() || (c && !G.shown.includes(c))); d.reset();
+    }
+  } finally { d.playUntil = null; d.invite = null; }
+}
+function* idle(d, dur) {
+  const cap = capacity(), end = G.rt + dur;
+  const busy = () => d.duet && !d.duet.done && G.rt < end + 12; // a game in progress may run a little over time
+  yield* play(d, () => (G.rt >= end && !busy()) || G.skip !== 0 || !G.shown.length || capacity() !== cap || needSwap(d), end);
+}
+const choose = (list, table) => { const ok = (list || []).filter(k => table[k]); return pick(ok.length ? ok : Object.keys(table)); };
+function* sendAway(d, c) {
+  const [list, table] = acts(d).exits, ex = choose(list, table); d.reset();
+  const i = G.cards.indexOf(c); if (i >= 0) { G.cards.splice(i, 1); G.cards.push(c); } // leaves on top of the others
+  yield* table[ex](d, c); c.dead = true; d.reset(); return ex;
+}
+
+function* director(d) { // the gallery keeper: runs the slideshow
+  while (d.reveal < 1) { d.reveal = Math.min(1, d.reveal + G.dt / 2.6); yield; } // draws itself in
+  if (G.shown.length) yield* idle(d, cfg.interval);
+  let fails = 0;
+  for (;;) {
+    if (needSwap(d)) { swapKeeper(d); return; }
+    if (!Lib.order.length) { yield* IDLE.wander(d, null, () => Lib.order.length > 0 || needSwap(d)); continue; }
+    const cap = capacity();
+    if (G.shown.length > cap) { // fewer images wanted: send the oldest away, the rest spread out
+      G.skip = 0; showCaption(null);
+      yield* sendAway(d, G.shown.shift());
+      compose(G.shown.slice());
+      const nw = G.shown[G.shown.length - 1]; showCaption(nw && nw.name);
+      yield* idle(d, G.shown.length > capacity() ? 1 : cfg.interval);
+      continue;
+    }
+    const back = G.skip < 0 && G.shown.length > 0; G.skip = 0;
+    // a full screen swaps one image (the oldest, or the newest when going back); otherwise one more joins
+    const leaving = back ? G.shown[G.shown.length - 1] : G.shown.length >= cap ? G.shown[0] : null;
+    const stay = G.shown.filter(c => c !== leaving);
+    const item = back ? Lib.back(G.shown.length) : Lib.nextFresh(new Set(stay.map(c => c.url)));
+    const r = yield* awaitP(prepare(item), () => needSwap(d)); // a slow image must not block a handover
+    if (r.aborted) continue;
+    if (!r.ok) {
+      console.warn(r.err);
+      if (++fails >= Lib.order.length) { fails = 0; yield* IDLE.wander(d, null, timer(3)); }
+      continue;
+    }
+    fails = 0;
+    const nc = new Card(r.value), first = !G.shown.length;
+    let ex = '';
+    if (leaving) { G.shown = stay; showCaption(null); ex = yield* sendAway(d, leaving); }
+    const list = back ? [nc, ...G.shown] : [...G.shown, nc];
+    G.arriving = nc; compose(list, nc);
+    const A = acts(d), [elist, etable] = A.entries;
+    const en = first && (elist || []).includes(A.first) ? A.first : choose(elist, etable);
+    const afterCoil = ex === 'coil' && Math.hypot(leaving.hx - nc.hx, leaving.hy - nc.hy) < d.L * .12;
+    d.reset(); yield* etable[en](d, nc, afterCoil); d.reset();
+    G.arriving = null; G.shown = list.filter(c => !c.dead); showCaption(nc.name);
+    if (cfg.autoSwitch > 0 && ++G.changes >= cfg.autoSwitch) rotateKeeper(); // the idle below ends early and the other kind takes over
+    const nx = Lib.peek(); if (nx) new Image().src = nx.url; // warm the cache
+    yield* idle(d, G.shown.length < capacity() ? Math.max(2.5, cfg.interval * .4) : cfg.interval);
+  }
+}
+function* companion(d) { // extra dragons just play
+  while (d.reveal < 1 && !d.leaving) { d.reveal = Math.min(1, d.reveal + G.dt / 2.2); yield; }
+  if (!d.main) yield* play(d, () => d.leaving || d.main, Infinity); // ends when leaving, or promoted to keeper (the director takes over)
+  if (d.leaving) while (!d.removed) yield;
+}
+/* ---------------------------- dragons playing together ---------------------------- */
+// Now and then a dragon at play invites another free one to a game for two. The initiator runs its own
+// role; the partner's role is handed over as a generator in partner.invite, which the partner's play loop
+// picks up as soon as its current act lets go. Both roles share a state object S, meet at sync points,
+// and stop together (S.done latches) as soon as either dragon is needed elsewhere.
+const DUET_KINDS = { duel: ['european', 'european'], scare: ['european', 'chinese'], coil: ['chinese', 'european'] }; // role 1, role 2
+const within = (x, y, mx, my) => ({ x: clamp(x, G.W * mx, G.W * (1 - mx)), y: clamp(y, G.H * my, G.H * (1 - my)) });
+function canPlay(d) {
+  if (d.duet && !d.duet.done && !d.duet.stop()) return false;
+  return !!d.playUntil && !d.playUntil() && !d.invite && !d.leaving && !d.removed && d.reveal >= 1 && d.playEnd - G.rt > 2;
+}
+function loiter(d, P, face) { // one step of waiting near P: hover in place (European) or circle lazily (Chinese)
+  if (d.kind === 'european') { d.target.x = d.x + (face || facing(d)) * d.L; d.target.y = d.y; d.speedMul = .03; d.turnMul = 1; return; }
+  const a = G.t * 1.7 + d.seed; d.target.x = P.x + Math.cos(a) * d.u * 7; d.target.y = P.y + Math.sin(a) * d.u * 5; d.speedMul = .6; d.turnMul = 2;
+}
+function* sync(S, w, tag, stop, d, P, face, tmax = 8) { // wait until both dragons reach this point of the game
+  S[tag] = (S[tag] || 0) | w; let t = 0;
+  while (S[tag] !== 3) {
+    if (stop()) return false;
+    if ((t += G.dt) > tmax) { S.done = true; return false; }
+    loiter(d, P, face); yield;
+  }
+  if (S[tag + 'T'] == null) S[tag + 'T'] = G.t;
+  return !stop();
+}
+function touches(p, o, r) { // is point p on dragon o (head or body)?
+  if (Math.hypot(p.x - o.x, p.y - o.y) < r + o.u * 1.5) return true;
+  for (let i = 0; i < o.nVis; i += 3) { const s = o.S[i]; if (Math.hypot(p.x - s.x, p.y - s.y) < r + (s.w || o.u)) return true; }
+  return false;
+}
+function farFrom(d, o) { // a free spot far away from dragon o
+  let best = null, bd = -1;
+  for (let k = 0; k < 6; k++) { const p = freePoint(d, null), dd = Math.hypot(p.x - o.x, p.y - o.y); if (dd > bd) { bd = dd; best = p; } }
+  return best;
+}
+function* maybeDuet(d) {
+  if (!(cfg.duetChance > 0) || Math.random() >= cfg.duetChance || !canPlay(d)) return false;
+  const opts = [];
+  for (const p of G.dragons) {
+    if (p === d || !canPlay(p)) continue;
+    for (const n of cfg.duets || []) {
+      if (!DUETS[n]) continue;
+      const k = DUET_KINDS[n], fits = (a, b) => !k || ((k[0] == null || k[0] === a.kind) && (k[1] == null || k[1] === b.kind));
+      if (fits(d, p)) opts.push([n, d, p]); else if (fits(p, d)) opts.push([n, p, d]);
+    }
+  }
+  if (!opts.length) return false;
+  const [n, X, Y] = pick(opts), roles = DUETS[n], p = X === d ? Y : X, S = { done: false, n };
+  S.stop = () => S.done || (S.done = d.duet !== S || p.duet !== S || d.removed || p.removed || d.leaving || p.leaving ||
+    !d.playUntil || d.playUntil() || !p.playUntil || p.playUntil());
+  const role = (me, other) => { const w = me === X ? 1 : 2; return roles[w - 1](me, other, S, S.stop, w); };
+  d.duet = p.duet = S;
+  const inv = (function* () { S.in = true; yield* role(p, d); })();
+  p.invite = inv;
+  try {
+    const P0 = { x: d.x, y: d.y }; let t = 0;
+    while (!S.in && !S.stop()) { if ((t += G.dt) > 6) { S.done = true; break; } loiter(d, P0); yield; } // the partner finishes what it's doing
+    if (!S.stop()) yield* role(d, p);
+  } finally { S.done = true; if (p.invite === inv) p.invite = null; if (d.duet === S) d.duet = null; }
+  return true;
+}
+
+// stage two dragons facing each other across S.M, S.D apart (role 1 on the left when S.s = 1)
+function* faceOff(d, o, S, stop, w, D) {
+  if (!S.M) {
+    const X = w === 1 ? d : o, Y = w === 1 ? o : d;
+    S.M = within((X.x + Y.x) / 2, (X.y + Y.y) / 2, .3, .3); S.s = X.x < Y.x ? 1 : -1; S.D = D;
+  }
+  const s = w === 1 ? S.s : -S.s, P = { x: S.M.x - s * S.D, y: S.M.y };
+  yield* steer(d, { x: P.x - s * d.L * .3, y: P.y + d.L * .05 }, { r: d.L * .13, t: 7, until: stop }); if (stop()) return 0; // come in from behind, already facing the other
+  yield* steer(d, P, { r: d.u * 2.5, s: .6, t: 5, turn: 1.4, until: stop }); if (stop()) return 0;
+  return (yield* sync(S, w, 'staged', stop, d, P, s)) ? s : 0;
+}
+function* twirl(d, o, S, stop, w) { // circle each other on opposite sides of an inward-and-out spiral
+  if (!S.C) {
+    const X = w === 1 ? d : o, C = within((d.x + o.x) / 2, (d.y + o.y) / 2, .35, .38);
+    Object.assign(S, { C, rx: Math.min(G.W * .4, G.H * .33), ry: G.H * .27, a0: Math.atan2(X.y - C.y, X.x - C.x),
+      dir: Math.random() < .5 ? 1 : -1, v: Math.min(d.base, o.base) * 1.1, laps: rand(1.3, 1.8) });
+  }
+  const { C, rx, ry, dir, v } = S, Rm = (rx + ry) / 2, a0 = S.a0 + (w - 1) * Math.PI;
+  const P = (a, k) => ({ x: C.x + Math.cos(a) * rx * k, y: C.y + Math.sin(a) * ry * k });
+  yield* steer(d, P(a0, 1), { r: d.L * .12, t: 7, until: stop }); if (stop()) return;
+  if (!(yield* sync(S, w, 'go', stop, d, P(a0, 1)))) return;
+  const wv = v / Rm, dur = S.laps * TAU / wv; let a = a0;
+  for (;;) {
+    const tt = G.t - S.goT; if (tt > dur || stop()) break;
+    const p = tt / dur, k = 1 - .5 * Math.sin(Math.PI * p), lead = d.u * 5;
+    a = a0 + dir * wv * tt;
+    const q = P(a + dir * lead / (Rm * k), k), dd = Math.hypot(q.x - d.x, q.y - d.y);
+    d.target.x = q.x; d.target.y = q.y; d.speedMul = v / d.base * clamp(dd / lead, .6, 1.8); d.turnMul = 3.5;
+    if (w === 1 && p > .5 && !S.heart) { S.heart = true; hearts(C.x, C.y, 3, (d.u + o.u) * .7); }
+    yield;
+  }
+  if (stop()) return;
+  yield* steer(d, within(C.x + Math.cos(a + dir * .6) * rx * 2, C.y + Math.sin(a + dir * .6) * ry * 2, .05, .08), { r: d.L * .15, t: 3.5, until: stop });
+}
+function* boop(d, o, S, stop, w) { // meet in the middle and touch snouts
+  const s = yield* faceOff(d, o, S, stop, w, (d.u + o.u) * 6.5); if (!s) return;
+  const met = () => { const a = d.snout(), b = o.snout(); return S.met || Math.hypot(a.x - b.x, a.y - b.y) < (d.u + o.u) * 1.3; };
+  d.jawT = .15;
+  yield* steer(d, S.M, { ref: 'snout', r: d.u, s: .45, t: 5, turn: 1.6, hit: met, until: stop }); if (stop()) return;
+  if (!S.met) {
+    S.met = true; const a = d.snout(), b = o.snout(), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    impact(mx, my, 0, (d.u + o.u) * 1.2, true); hearts(mx, my - (d.u + o.u), 3, (d.u + o.u) * .6);
+  }
+  d.jawT = .05;
+  if (d.kind === 'european') { // back-pedal, then rise
+    d.flapHard = 1; d.headLiftT = 1;
+    yield* hold(d, .9, { face: s, s: 0, until: stop }); d.headLiftT = 0;
+    yield* steer(d, within(d.x - s * d.L * .35, d.y - d.L * .35, .05, .08), { r: d.L * .15, t: 3.5, until: stop });
+  } else { // swerve past and curl away (one up, one down)
+    yield* steer(d, within(d.x + s * d.L * .25, d.y + (w === 1 ? -1 : 1) * d.L * .35, .05, .08), { r: d.L * .15, t: 3.5, turn: 2, until: stop });
+  }
+}
+function* duel(d, o, S, stop, w) { // two European dragons breathe fire at each other; the flames clash in the middle
+  const s = yield* faceOff(d, o, S, stop, w, (d.u + o.u) * 8); if (!s) return;
+  d.headLiftT = .6;
+  yield* hold(d, .6, { face: s, until: stop, on: () => { d.jawT = .3; } }); // draws breath
+  if (!(yield* sync(S, w, 'fire', stop, d, d, s, 3))) return;
+  const dur = 2; d.breathe(dur);
+  let acc = 0, bang = 0;
+  yield* hold(d, dur + .3, { face: s, until: stop, on: () => {
+    const a = d.mouth(), b = o.mouth(), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    d.fireReach = Math.hypot(a.x - b.x, a.y - b.y) / 2 + d.u * 1.5;
+    if (w !== 1 || d.fireVis < .6 || o.fireVis < .6) return;
+    const U = (d.u + o.u) / 2; // the clash: flames spray up and out, sparks burst
+    acc += G.dt * 40; while (acc >= 1) { acc--; const an = -Math.PI / 2 + rand(-1.1, 1.1), v = U * rand(4, 8);
+      G.parts.push({ type: 'flame', x: mx, y: my, vx: Math.cos(an) * v, vy: Math.sin(an) * v, k: 2, g: -U * 6, t0: G.t, life: rand(.4, .7), size: U * rand(.4, .7), seed: rand(0, 1000), ang: an }); }
+    if ((bang -= G.dt) <= 0) { bang = .4; impact(mx, my, 0, U * 3, true); gustLines(mx, my, -Math.PI / 2, 2, U * 3, 1.3); }
+  } });
+  if (stop()) return;
+  d.headLiftT = 0; d.flapHard = 1; d.puff(3);
+  yield* steer(d, within(d.x - s * d.L * .35, d.y - d.L * .4, .05, .08), { r: d.L * .15, t: 3.5, until: stop });
+}
+const DUETS = {
+  chase: [ // role 1 chases, role 2 runs; a touch is a tag
+    function* (d, o, S, stop) {
+      d.jawT = .25; let t = 0, caught = false;
+      while (!stop() && !S.end) {
+        const ah = o.speed * .35; d.target.x = o.x + Math.cos(o.heading) * ah; d.target.y = o.y + Math.sin(o.heading) * ah;
+        d.speedMul = 1.45 * o.base / d.base; d.turnMul = 1.6;
+        if (d.kind === 'european') d.flapHard = .2;
+        if ((t += G.dt) > .8 && touches(d.snout(), o, d.u * 2)) { caught = true; break; }
+        if (t > 11) break;
+        yield;
+      }
+      S.end = caught ? 'tag' : 'miss'; d.jawT = .05;
+      if (stop()) return;
+      if (caught) { const s = d.snout(); impact(s.x, s.y, d.heading, d.u * 3, true); }
+      else if (d.kind === 'european') d.puff(3); else { d.jawT = .5; d.jawHold = .6; }
+      if (d.kind === 'european') d.flapHard = .8;
+      yield* steer(d, within(d.x + Math.cos(d.heading) * d.L * .4, d.y - d.L * .35, .05, .08), { r: d.L * .15, t: 3, until: stop });
+    },
+    function* (d, o, S, stop) {
+      d.jawT = .35; d.jawHold = .5; if (d.kind === 'european') d.flapHard = 1;
+      let goal = farFrom(d, o);
+      while (!stop() && !S.end) {
+        if (Math.hypot(goal.x - d.x, goal.y - d.y) < d.L * .15) goal = farFrom(d, o);
+        d.target.x = goal.x; d.target.y = goal.y; d.speedMul = 1.15; d.turnMul = 1.3;
+        yield;
+      }
+      if (stop()) return;
+      if (S.end === 'tag') { // jolted: dart away
+        d.jawT = .7; d.jawHold = .5; if (d.kind === 'european') d.flapHard = 1.2;
+        yield* steer(d, farFrom(d, o), { r: d.L * .15, s: 1.7, t: 3, turn: 2, until: stop });
+      } else { // got away: a smug little swoop
+        if (d.kind === 'european') d.puff(2); else { d.jawT = .5; d.jawHold = .8; }
+        yield* steer(d, within(d.x + Math.cos(d.heading) * d.L * .3, d.y - d.L * .3, .05, .08), { r: d.L * .15, t: 3, until: stop });
+      }
+    },
+  ],
+  twirl: [twirl, twirl],
+  boop: [boop, boop],
+  duel: [duel, duel],
+  scare: [ // a European dragon sneaks up on a Chinese one and roars fire; it bolts
+    function* (d, o, S, stop) {
+      const side = d.x < o.x ? -1 : 1, face = -side, U = (d.u + o.u) / 2;
+      const P = () => ({ x: inX(d, o.x + side * U * 15), y: clamp(o.y + U * .5, G.H * .1, G.H * .9) });
+      yield* steer(d, P, { r: d.u * 3, s: 1.15, t: 9, turn: 1.4, until: stop }); if (stop()) return;
+      d.headLiftT = 1.2;
+      yield* hold(d, .45, { face, until: stop, on: () => { d.jawT = .35; } }); if (stop()) return;
+      d.breathe(1.1, U * 13);
+      yield* hold(d, 1.35, { face, until: stop, on: q => { if (q > .2) S.boo = true; } }); if (stop()) return;
+      let n = 0; // laughs: little puffs of smoke, head bobbing
+      yield* hold(d, 1.6, { face, until: stop, on: q => { d.headLiftT = 1 + .5 * Math.sin(q * TAU * 3); d.jawT = .3; if (q > n * .3 && n < 3) { n++; d.puff(1); } } });
+      d.headLiftT = 0; d.flapHard = .6;
+      yield* steer(d, within(d.x - face * d.L * .3, d.y - d.L * .4, .05, .08), { r: d.L * .15, t: 3, until: stop });
+    },
+    function* (d, o, S, stop) {
+      let goal = freePoint(d, null), t = 0;
+      while (!stop() && !S.boo && (t += G.dt) < 14) { // drifts along, oblivious
+        if (Math.hypot(goal.x - d.x, goal.y - d.y) < d.L * .15) goal = freePoint(d, null);
+        d.target.x = goal.x; d.target.y = goal.y; d.speedMul = .5; d.turnMul = 1; d.wiggleMul = .7;
+        yield;
+      }
+      if (!S.boo || stop()) return;
+      d.wiggleMul = 1.6; d.jawT = .85; d.jawHold = .8;
+      const sn = d.snout(); impact(sn.x, sn.y, 0, d.u * 3.5, true);
+      yield* steer(d, farFrom(d, o), { r: d.L * .15, s: 2, t: 4, turn: 2.5, until: stop });
+    },
+  ],
+  coil: [ // a Chinese dragon wraps loosely around a hovering European one, which watches, then snorts and flies off
+    function* (d, o, S, stop) {
+      if (!(yield* sync(S, 1, 'ready', stop, d, { x: d.x, y: d.y }))) return;
+      const C = () => ({ x: (o.S[0].x + o.S[o.N].x) / 2, y: (o.S[0].y + o.S[o.N].y) / 2 }), rx = o.u * 12, ry = o.u * 9;
+      let c = C(); const dir = spinDir(d, c.x, c.y);
+      let ang = Math.atan2((d.y - c.y) / ry, (d.x - c.x) / rx) + dir * .6;
+      yield* steer(d, () => { const c = C(); return { x: c.x + Math.cos(ang) * rx, y: c.y + Math.sin(ang) * ry }; }, { r: d.L * .1, t: 7, s: 1.1, until: stop }); if (stop()) return;
+      c = C(); ang = Math.atan2((d.y - c.y) / ry, (d.x - c.x) / rx);
+      const total = TAU * 1.7, v = d.base * 1.35; let done = 0; d.turnMul = 3.5;
+      while (done < total && !stop()) {
+        c = C(); const p = done / total, k = 1 - .25 * Math.sin(Math.PI * p), Rx = rx * k, Ry = ry * k, lead = d.u * 4;
+        const lr = Math.max(d.u, Math.hypot(Rx * Math.sin(ang), Ry * Math.cos(ang))), la = clamp(lead / lr, .1, 1.2);
+        const tx = c.x + Math.cos(ang + dir * la) * Rx, ty = c.y + Math.sin(ang + dir * la) * Ry;
+        d.target.x = tx; d.target.y = ty;
+        const dd = Math.hypot(tx - d.x, ty - d.y), da = v / lr * G.dt * clamp(2 - dd / lead, .1, 1.25);
+        ang += dir * da; done += da; d.speedMul = 1.35 * clamp(dd / lead, .6, 1.7);
+        yield;
+      }
+      S.end = true; if (stop()) return;
+      d.jawT = .5; d.jawHold = .6;
+      yield* steer(d, farFrom(d, o), { r: d.L * .15, s: 1.4, t: 4, until: stop });
+    },
+    function* (d, o, S, stop) {
+      const P = within(d.x, d.y, .3, .3), face = P.x < G.W / 2 ? 1 : -1;
+      yield* steer(d, P, { r: d.u * 2.5, s: .8, t: 7, until: stop }); if (stop()) return;
+      if (!(yield* sync(S, 2, 'ready', stop, d, P, face))) return;
+      let t = 0; d.headLiftT = 1;
+      while (!stop() && !S.end && (t += G.dt) < 16) { loiter(d, P, face); d.headLiftT = 1 + .7 * Math.sin(t * 1.3); yield; } // watches it go round
+      if (stop()) return;
+      d.headLiftT = 0; d.puff(3); d.flapHard = 1.2;
+      const g = d.local(-5, .8); gustLines(g.x, g.y + d.u * 2, Math.PI / 2, 8, d.u * 4, 1);
+      yield* steer(d, within(d.x + face * d.L * .4, d.y - d.L * .5, .05, .06), { r: d.L * .15, t: 4, until: stop });
+    },
+  ],
+};
+Object.assign(DUET_KINDS, { hoop: ['european', null] });
+Object.assign(DUETS, {
+  parade: [ // follow the leader: role 2 trails role 1 nose to tail
+    function* (d, o, S, stop) {
+      d.jawT = .3; d.jawHold = .4;
+      for (let k = 0; k < 3 && !stop(); k++) yield* steer(d, freePoint(d, null), { r: d.L * .12, s: .85, t: 7, until: stop });
+      S.end = true; if (stop()) return;
+      if (d.kind === 'european') { d.flapHard = 1; d.puff(2); yield* steer(d, within(d.x + facing(d) * d.L * .4, d.y - d.L * .4, .05, .08), { r: d.L * .15, t: 3, until: stop }); }
+      else { const R = d.u * 8, fn = loopPath(d, R); yield* follow(d, fn, { len: TAU * R, v: d.base * 1.25, lead: d.u * 3.5, turn: 4, until: stop }); } // a flourish
+    },
+    function* (d, o, S, stop) {
+      while (!stop() && !S.end) {
+        const H = o.hist, p = H[Math.max(0, H.length - 1 - Math.floor(o.L * .85 / o.step))], dd = Math.hypot(p.x - d.x, p.y - d.y);
+        d.target.x = p.x; d.target.y = p.y; d.turnMul = 1.8;
+        d.speedMul = clamp(dd / (d.u * 8), .5, 1.8) * Math.max(o.speed, o.base * .5) / d.base;
+        yield;
+      }
+      if (stop()) return;
+      d.jawT = .4; d.jawHold = .4;
+      yield* steer(d, farFrom(d, o), { r: d.L * .15, t: 4, until: stop }); // peels away
+    },
+  ],
+  hoop: [ // a European dragon blows a big smoke ring and the other flies through it
+    function* (d, o, S, stop) {
+      const P = within(d.x, d.y, .25, .3), face = P.x < G.W / 2 ? 1 : -1;
+      S.R = { x: P.x + face * d.u * 16, y: P.y }; S.face = face;
+      yield* steer(d, { x: P.x - face * d.L * .3, y: P.y + d.L * .05 }, { r: d.L * .13, t: 7, until: stop }); if (stop()) return;
+      yield* steer(d, P, { r: d.u * 2.5, s: .6, t: 5, turn: 1.4, until: stop }); if (stop()) return;
+      if (!(yield* sync(S, 1, 'ready', stop, d, P, face, 10))) return;
+      d.headLiftT = .4;
+      yield* hold(d, .5, { face, until: stop, on: () => { d.jawT = .35; } }); if (stop()) return;
+      const sn = d.snout(); S.ring = smokeRing(d, 4.5, Math.max(d.u * 6, Math.abs(S.R.x - sn.x))); d.jawT = .6; d.jawHold = .3;
+      S.R.y = sn.y; S.blown = G.t;
+      while (!stop() && !S.end && G.t - S.blown < 7) { loiter(d, P, face); yield; }
+      d.headLiftT = 0; if (stop()) return;
+      if (S.through) { d.puff(2); d.flapHard = .8; }
+      yield* hold(d, .8, { face, until: stop });
+      yield* steer(d, within(d.x - face * d.L * .3, d.y - d.L * .4, .05, .08), { r: d.L * .15, t: 3, until: stop });
+    },
+    function* (d, o, S, stop) {
+      let t = 0; const W0 = { x: d.x, y: d.y }; while (!S.R && !stop() && (t += G.dt) < 8) { loiter(d, W0); yield; } if (!S.R || stop()) return;
+      const f = S.face, Q = () => within(S.R.x + f * d.u * 26, S.R.y - d.u * 4, .04, .1);
+      yield* steer(d, Q, { r: d.L * .1, t: 8, until: stop }); if (stop()) return;
+      if (!(yield* sync(S, 2, 'ready', stop, d, Q(), -f, 10))) return;
+      t = 0; while (!S.blown && !stop() && (t += G.dt) < 4) { loiter(d, Q(), -f); yield; }
+      t = 0; while (!stop() && (t += G.dt) < .7) { loiter(d, Q(), -f); yield; } // let the ring form
+      if (stop() || !S.blown) return;
+      const R = S.R, rr = S.ring ? S.ring.size : d.u * 4;
+      yield* steer(d, { x: R.x, y: R.y }, { r: d.u, s: 1.2, t: 5, turn: 2, until: stop,
+        hit: () => (d.x - R.x) * -f > 0 && Math.abs(d.y - R.y) < rr * 1.2 });
+      if (stop()) return;
+      if (Math.abs(d.y - R.y) < rr * 1.2) {
+        S.through = true; hearts(R.x, R.y - rr, 2, d.u * 1.2); impact(R.x, R.y, 0, rr * 1.2, true);
+        if (S.ring) S.ring.life = G.t - S.ring.t0 + .35; // the ring breaks up
+      }
+      S.end = true;
+      yield* steer(d, within(d.x - f * d.L * .2, d.y - d.L * .45, .05, .06), { r: d.L * .15, s: 1.2, t: 3.5, turn: 2, until: stop }); // swerves up past the other
+    },
+  ],
+});
+function wantCounts() {
+  const w = { chinese: clamp(Math.round(cfg.chineseCount) || 0, 0, 4), european: clamp(Math.round(cfg.europeanCount) || 0, 0, 4) };
+  if (w.chinese + w.european < 1) w.chinese = 1;
+  return w;
+}
+function keeperKind() { const w = wantCounts(), k = cfg.keeper === 'european' ? 'european' : 'chinese'; return w[k] > 0 ? k : k === 'chinese' ? 'european' : 'chinese'; }
+const needSwap = d => d.main && d.kind !== keeperKind();
+function addCompanion(kind) {
+  const d = new KINDS[kind](false);
+  d.place(rand(.15, .85) * G.W, rand(.15, .85) * G.H, rand(0, TAU), kind === 'chinese' ? .5 : .12); d.reveal = 0;
+  const p = freePoint(d, null); d.target.x = p.x; d.target.y = p.y;
+  G.dragons.push(d); G.runners.push({ d, gen: companion(d) }); return d;
+}
+function swapKeeper(old) { // hand the slideshow over to a dragon of the other kind (called by the director between acts)
+  const K = keeperKind(); G.changes = 0;
+  const nk =G.dragons.find(x => x.kind === K && !x.leaving && !x.main) || addCompanion(K);
+  old.main = false; old.sizeT = rand(.55, .75); old.reset();
+  nk.main = true; nk.sizeT = 1; nk.reset();
+  const r = G.runners.find(r => r.d === nk);
+  if (r) r.gen = director(nk); else G.runners.push({ d: nk, gen: director(nk) });
+  G.runners.push({ d: old, gen: companion(old) });
+  syncDragons();
+}
+function rotateKeeper() { // auto switch: hand the slideshow to the other kind of dragon
+  G.changes = 0;
+  const cur = keeperKind(), other = cur === 'chinese' ? 'european' : 'chinese', w = wantCounts();
+  if (!w[other]) { cfg[other + 'Count'] = w[cur]; cfg[cur + 'Count'] = 0; } // only one kind on screen: the whole crew changes shift
+  cfg.keeper = other; saveConfig();
+  ['chineseCount', 'europeanCount', 'keeper'].forEach(setField);
+  syncDragons(); // the keeper notices needSwap() at its next pause and hands over
+}
+function syncDragons() { // match the number of dragons of each kind to the settings
+  const want = wantCounts();
+  for (const kind of ['chinese', 'european']) {
+    const alive = G.dragons.filter(d => !d.leaving && d.kind === kind);
+    while (alive.length < want[kind]) alive.push(addCompanion(kind));
+    for (let i = alive.length - 1; i >= 0 && alive.length > want[kind]; i--) {
+      if (alive[i].main) continue; // the keeper only leaves after handing over
+      alive[i].leaving = true; alive.splice(i, 1);
+    }
+  }
+}
+
+/* ---------------------------- loop ---------------------------- */
+function step() {
+  for (const r of G.runners) {
+    if (r.done) continue;
+    try { if (r.gen.next().done) r.done = true; }
+    catch (e) { console.error(e); r.d.reset(); r.gen = r.d.main ? director(r.d) : companion(r.d); }
+  }
+  for (const d of G.dragons) d.update(G.dt);
+  for (const c of G.cards) c.update(G.dt);
+  updateParticles(G.dt);
+  G.cards = G.cards.filter(c => !c.dead);
+  G.dragons = G.dragons.filter(d => !d.removed);
+  G.runners = G.runners.filter(r => !r.done && !r.d.removed);
+  if (!G.runners.some(r => r.d.main)) { // safety net: the keeper must always have a director running
+    const k = G.dragons.find(d => d.main); if (k) G.runners.push({ d: k, gen: director(k) });
+  }
+}
+function render() {
+  ctx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0); ctx.globalAlpha = 1;
+  ctx.drawImage(G.bg, 0, 0, G.W, G.H);
+  for (const d of G.dragons) d.drawTrail(ctx);
+  for (const d of G.dragons) d.draw(ctx, -1);
+  for (const c of G.cards) c.draw(ctx);
+  for (const d of G.dragons) d.draw(ctx, 1);
+  for (const d of G.dragons) if (d.drawFire) d.drawFire(ctx);
+  drawParticles(ctx);
+  drawFx(ctx);
+}
+const LOW_FPS = 30;
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (cfg.lowPower && G.last && now - G.last < 1000 / LOW_FPS - 4) return; // low power: draw ~30 frames a second
+  const gap = G.last ? now - G.last : 0, raw = Math.min(.05, gap / 1000); G.last = now;
+  if (!G.paused && raw > 0) {
+    const dt = raw * cfg.animationSpeed, n = Math.max(1, Math.ceil(dt / (1 / (cfg.lowPower ? 30 : 60))));
+    G.rt += raw;
+    for (let k = 0; k < n; k++) { G.dt = dt / n; G.t += G.dt; step(); }
+    perfWatch(gap);
+  } else if (G.paused && now - G.drawnAt < 200) return; // paused: the picture is still, so redraw only a few times a second (settings changes still show)
+  render(); G.drawnAt = now;
+}
+// If the page runs slowly in normal mode, suggest low power mode once.
+const PW = { t: 0, n: 0, warm: 0, done: false };
+function perfWatch(gap) {
+  if (PW.done || cfg.lowPower || document.hidden) return;
+  if (gap > 250) return; // tab switch or hiccup: don't count it
+  if ((PW.warm += gap) < 4000) return; // let the start-up settle first
+  PW.t += gap; PW.n++;
+  if (PW.t < 6000) return;
+  PW.done = true;
+  if (PW.n / (PW.t / 1000) < 40) showHint();
+}
+function showHint() {
+  const el = document.getElementById('hint'); el.hidden = false;
+  requestAnimationFrame(() => el.classList.add('show'));
+  clearTimeout(showHint.t); showHint.t = setTimeout(hideHint, 15000);
+}
+function hideHint() { const el = document.getElementById('hint'); el.classList.remove('show'); setTimeout(() => { el.hidden = true; }, 500); }
+function setLowPower(on) { cfg.lowPower = !!on; setCheck('lowPower'); applySetting('lowPower'); hideHint(); }
+function buildBg() {
+  const c = G.bg || (G.bg = document.createElement('canvas'));
+  c.width = Math.round(G.W * G.dpr); c.height = Math.round(G.H * G.dpr);
+  const x = c.getContext('2d'); x.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
+  x.fillStyle = cfg.background; x.fillRect(0, 0, G.W, G.H);
+  const [r, g, b] = hexRgb(cfg.background), dark = (r * .3 + g * .59 + b * .11) < 128;
+  const v = x.createRadialGradient(G.W / 2, G.H / 2, Math.min(G.W, G.H) * .25, G.W / 2, G.H / 2, Math.hypot(G.W, G.H) * .6);
+  v.addColorStop(0, 'rgba(255,255,255,' + (dark ? .035 : .12) + ')'); v.addColorStop(1, 'rgba(0,0,0,' + (dark ? .45 : .16) + ')');
+  x.fillStyle = v; x.fillRect(0, 0, G.W, G.H);
+  const n = document.createElement('canvas'); n.width = n.height = 160; const nx = n.getContext('2d'), id = nx.createImageData(160, 160);
+  for (let i = 0; i < id.data.length; i += 4) { const k = Math.random() * 255; id.data[i] = id.data[i + 1] = id.data[i + 2] = k; id.data[i + 3] = 10; }
+  nx.putImageData(id, 0, 0); x.fillStyle = x.createPattern(n, 'repeat'); x.fillRect(0, 0, G.W, G.H);
+  document.body.style.background = cfg.background;
+}
+function resize() {
+  G.dpr = cfg.lowPower ? 1 : Math.min(2, window.devicePixelRatio || 1); G.W = window.innerWidth; G.H = window.innerHeight;
+  document.body.classList.toggle('low-power', !!cfg.lowPower);
+  cv.width = Math.round(G.W * G.dpr); cv.height = Math.round(G.H * G.dpr);
+  for (const d of G.dragons) d.rescale();
+  relayout();
+  buildBg();
+}
+
+/* ---------------------------- UI ---------------------------- */
+const SCHEMA = [
+  'Images',
+  { k: 'imageDir', label: 'Image folder (relative to this page)', type: 'text' },
+  { k: 'order', label: 'Order', type: 'select', opts: { random: 'Random (shuffled)', alphabetical: 'Alphabetical A → Z', reverse: 'Alphabetical Z → A' } },
+  { k: 'maxImages', label: 'Images on screen', type: 'range', min: 1, max: 4, step: 1, fmt: v => v },
+  { k: 'interval', label: 'Time between changes', type: 'range', min: 3, max: 120, step: 1, fmt: v => v + ' s' },
+  { k: 'imageSize', label: 'Image area', type: 'range', min: .3, max: .95, step: .01, fmt: v => Math.round(v * 100) + '%' },
+  { k: 'showFrame', label: 'Hand-drawn frame', type: 'check' },
+  { k: 'showCaption', label: 'Show file name', type: 'check' },
+  'Dragons',
+  { k: 'chineseCount', label: 'Chinese dragons (serpentine)', type: 'range', min: 0, max: 4, step: 1, fmt: v => v },
+  { k: 'europeanCount', label: 'European dragons (winged, legged)', type: 'range', min: 0, max: 4, step: 1, fmt: v => v },
+  { k: 'keeper', label: 'Who changes the images', type: 'select', opts: { chinese: 'A Chinese dragon', european: 'A European dragon' } },
+  { k: 'autoSwitch', label: 'Swap to the other kind after', type: 'range', min: 0, max: 20, step: 1, fmt: v => +v ? v + (+v === 1 ? ' change' : ' changes') : 'never' },
+  { k: 'animationSpeed', label: 'Animation speed', type: 'range', min: .25, max: 3, step: .05, fmt: v => (+v).toFixed(2) + '×' },
+  { k: 'dragonSpeed', label: 'Dragon flying speed', type: 'range', min: .3, max: 3, step: .05, fmt: v => (+v).toFixed(2) + '×' },
+  { k: 'dragonSize', label: 'Dragon size', type: 'range', min: .4, max: 2, step: .05, fmt: v => (+v).toFixed(2) + '×' },
+  'Chinese dragon',
+  { k: 'exits', label: 'How an image leaves', type: 'multi', opts: { push: 'Push out', drag: 'Carry off', coil: 'Coil & squeeze', gulp: 'Swallow whole', toss: 'Swing & fling' } },
+  { k: 'entries', label: 'How an image arrives', type: 'multi', opts: { carry: 'Carry in', sketch: 'Sketch the frame', unfurl: 'Unfurl from coil', fling: 'Toss into place', pop: 'Pop out of a loop' } },
+  { k: 'idles', label: 'Idle play', type: 'multi', opts: { orbit: 'Circle the frame', boop: 'Nudge', perch: 'Lounge on top', wander: 'Wander', weave: 'Weave behind', loop: 'Loop-the-loop', chase: 'Chase its tail' } },
+  'European dragon',
+  { k: 'euExits', label: 'How an image leaves', type: 'multi', opts: { snatch: 'Snatch in talons', burn: 'Burn to ashes', gust: 'Blow away', topple: 'Stomp & topple' } },
+  { k: 'euEntries', label: 'How an image arrives', type: 'multi', opts: { deliver: 'Fly it in', forge: 'Reveal with fire', unveil: 'Unveil under wings', drop: 'Drop from above' } },
+  { k: 'euIdles', label: 'Idle play', type: 'multi', opts: { soar: 'Soar & glide', perch: 'Land on a frame', stroll: 'Walk the ground', inspect: 'Hover & inspect', roar: 'Breathe fire', weave: 'Weave behind', rings: 'Blow smoke rings', dive: 'Dive & skim' } },
+  'Together',
+  { k: 'duetChance', label: 'How often they play together', type: 'range', min: 0, max: 1, step: .05, fmt: v => +v ? Math.round(v * 100) + '%' : 'never' },
+  { k: 'duets', label: 'Games for two', type: 'multi', opts: { chase: 'Chase & tag', twirl: 'Twirl around each other', boop: 'Touch snouts', duel: 'Fire duel (two European)', scare: 'Startle (European → Chinese)', coil: 'Coil around (Chinese → European)', parade: 'Follow the leader', hoop: 'Fly through a smoke ring (European + any)' } },
+  'Look',
+  { k: 'lineColor', label: 'Line colour', type: 'color' },
+  { k: 'background', label: 'Background', type: 'color' },
+  { k: 'lineWidth', label: 'Line width', type: 'range', min: .5, max: 6, step: .1, fmt: v => (+v).toFixed(1) + ' px' },
+  { k: 'sketchiness', label: 'Sketchiness', type: 'range', min: 0, max: 3, step: .1, fmt: v => (+v).toFixed(1) },
+  { k: 'bodyFill', label: 'Body tint', type: 'range', min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
+  { k: 'trail', label: 'Ink trail', type: 'range', min: 0, max: 10, step: .5, fmt: v => +v ? v + ' s' : 'off' },
+  'Performance',
+  { k: 'lowPower', label: 'Low power mode (slower PCs & laptops)', type: 'check' },
+];
+function applySetting(k) {
+  saveConfig();
+  if (k === 'order') Lib.rebuild(false);
+  if (k === 'dragonSize' || k === 'dragonSpeed') G.dragons.forEach(d => d.rescale());
+  if (k === 'chineseCount' || k === 'europeanCount') {
+    if ((Math.round(cfg.chineseCount) || 0) + (Math.round(cfg.europeanCount) || 0) < 1) { // keep at least one dragon
+      const o = k === 'chineseCount' ? 'europeanCount' : 'chineseCount';
+      cfg[o] = 1; saveConfig(); setField(o);
+    }
+    syncDragons();
+  }
+  if (k === 'keeper') syncDragons();
+  if (k === 'background') buildBg();
+  if (k === 'imageSize') relayout();
+  if (k === 'showCaption') showCaption(G.captionName);
+  if (k === 'lowPower') resize(); // switches resolution and redraws the background
+}
+function setCheck(k) { const el = document.getElementById('f_' + k); if (el) el.checked = !!cfg[k]; }
+function setField(k) { // show a value changed from code in the settings panel
+  const el = document.getElementById('f_' + k), f = SCHEMA.find(x => x.k === k); if (!el || !f) return;
+  el.value = cfg[k]; if (f.type === 'range') el.parentNode.querySelector('output').textContent = f.fmt(cfg[k]);
+}
+function buildPanel() {
+  const root = document.getElementById('fields'); root.innerHTML = '';
+  for (const f of SCHEMA) {
+    if (typeof f === 'string') { const h = document.createElement('h3'); h.textContent = f; root.appendChild(h); continue; }
+    const el = document.createElement('div'); el.className = 'field'; const id = 'f_' + f.k;
+    if (f.type === 'range') {
+      el.innerHTML = `<label for="${id}"><span>${f.label}</span><output></output></label><input type="range" id="${id}" min="${f.min}" max="${f.max}" step="${f.step}">`;
+      const inp = el.querySelector('input'), out = el.querySelector('output');
+      inp.value = cfg[f.k]; out.textContent = f.fmt(cfg[f.k]);
+      inp.oninput = () => { cfg[f.k] = parseFloat(inp.value); out.textContent = f.fmt(cfg[f.k]); applySetting(f.k); };
+    } else if (f.type === 'select') {
+      el.innerHTML = `<label for="${id}">${f.label}</label><select id="${id}">${Object.entries(f.opts).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>`;
+      const s = el.querySelector('select'); s.value = cfg[f.k]; s.onchange = () => { cfg[f.k] = s.value; applySetting(f.k); };
+    } else if (f.type === 'text') {
+      el.innerHTML = `<label for="${id}">${f.label}</label><input type="text" id="${id}" spellcheck="false">`;
+      const s = el.querySelector('input'); s.value = cfg[f.k];
+      s.onchange = () => { cfg[f.k] = s.value.trim(); saveConfig(); if (f.k === 'imageDir') initLibrary(); };
+    } else if (f.type === 'check' || f.type === 'color') {
+      el.classList.add('inline');
+      el.innerHTML = `<label for="${id}">${f.label}</label><input type="${f.type === 'check' ? 'checkbox' : 'color'}" id="${id}">`;
+      const s = el.querySelector('input');
+      if (f.type === 'check') { s.checked = !!cfg[f.k]; s.onchange = () => { cfg[f.k] = s.checked; applySetting(f.k); }; }
+      else { s.value = cfg[f.k]; s.oninput = () => { cfg[f.k] = s.value; applySetting(f.k); }; }
+    } else if (f.type === 'multi') {
+      el.innerHTML = `<div class="lbl">${f.label}</div><div class="checks">${Object.entries(f.opts).map(([v, l]) =>
+        `<label><input type="checkbox" value="${v}" ${cfg[f.k].includes(v) ? 'checked' : ''}>${l}</label>`).join('')}</div>`;
+      el.querySelectorAll('input').forEach(s => s.onchange = () => {
+        cfg[f.k] = [...el.querySelectorAll('input:checked')].map(x => x.value); applySetting(f.k);
+      });
+    }
+    root.appendChild(el);
+  }
+}
+function setStatus(t) { document.getElementById('status').textContent = t; }
+function showCaption(name) {
+  const el = document.getElementById('caption'); G.captionName = name;
+  if (name && cfg.showCaption) { el.textContent = name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' '); el.style.color = cfg.lineColor; el.classList.add('show'); }
+  else el.classList.remove('show');
+}
+const panel = document.getElementById('panel');
+function togglePanel(open) { panel.classList.toggle('open', open ?? !panel.classList.contains('open')); poke(); }
+let hideT = 0;
+function poke() {
+  document.body.classList.remove('hide-ui', 'hide-cursor'); clearTimeout(hideT);
+  hideT = setTimeout(() => { if (!panel.classList.contains('open')) document.body.classList.add('hide-ui', 'hide-cursor'); }, 2500);
+}
+function setupUI() {
+  buildPanel();
+  document.getElementById('gear').onclick = () => togglePanel();
+  document.getElementById('closePanel').onclick = () => togglePanel(false);
+  document.getElementById('hintOn').onclick = () => setLowPower(true);
+  document.getElementById('hintNo').onclick = () => hideHint();
+  updateShareLink();
+  document.getElementById('btnOpenLink').onclick = () => open(settingsUrl(), '_blank', 'noopener');
+  document.getElementById('btnCopyLink').onclick = async e => {
+    const b = e.currentTarget, url = settingsUrl();
+    try { await navigator.clipboard.writeText(url); }
+    catch (err) { const r = document.createRange(); r.selectNodeContents(document.getElementById('shareLink')); getSelection().removeAllRanges(); getSelection().addRange(r); document.execCommand('copy'); }
+    b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy link', 1500);
+  };
+  document.getElementById('btnReload').onclick = () => initLibrary();
+  document.getElementById('btnPick').onclick = document.getElementById('nPick').onclick = () => pickFolder();
+  document.getElementById('btnFiles').onclick = document.getElementById('nFiles').onclick = () => document.getElementById('filesInput').click();
+  document.getElementById('btnReset').onclick = () => {
+    cfg = JSON.parse(JSON.stringify(DEFAULTS)); saveConfig(); buildPanel(); resize(); syncDragons();
+    G.dragons.forEach(d => d.rescale()); relayout(); Lib.rebuild(false); initLibrary();
+  };
+  for (const id of ['dirInput', 'filesInput']) {
+    const inp = document.getElementById(id);
+    inp.onchange = () => { const items = filesToItems(inp.files); setLibrary(items, id === 'dirInput' ? 'picked folder' : 'picked files'); inp.value = ''; };
+  }
+  addEventListener('mousemove', poke); addEventListener('pointerdown', poke);
+  addEventListener('keydown', e => {
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.key !== 'Escape') return;
+    const k = e.key.toLowerCase();
+    if (k === ' ') { G.paused = !G.paused; document.body.classList.toggle('paused', G.paused); e.preventDefault(); }
+    else if (k === 'arrowright' || k === 'n') G.skip = 1;
+    else if (k === 'arrowleft' || k === 'p') G.skip = -1;
+    else if (k === 'f') { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); }
+    else if (k === 's' || k === ',') togglePanel();
+    else if (k === 'l') setLowPower(!cfg.lowPower);
+    else if (k === 'escape') togglePanel(false);
+  });
+  // drag & drop images or a folder
+  let dragDepth = 0;
+  addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
+  addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
+  addEventListener('dragover', e => e.preventDefault());
+  addEventListener('drop', async e => {
+    e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
+    const files = [], entries = [...(e.dataTransfer.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    const readDir = en => new Promise(res => { const r = en.createReader(), all = []; const more = () => r.readEntries(b => { if (!b.length) res(all); else { all.push(...b); more(); } }, () => res(all)); more(); });
+    const walk = async en => { if (en.isFile) files.push(await new Promise(res => en.file(res, () => res(null)))); else if (en.isDirectory) for (const c of await readDir(en)) await walk(c); };
+    if (entries.length) for (const en of entries) await walk(en); else files.push(...e.dataTransfer.files);
+    setLibrary(filesToItems(files.filter(Boolean)), 'dropped files');
+  });
+  addEventListener('resize', resize);
+}
+
+/* ---------------------------- start ---------------------------- */
+resize();
+setupUI();
+{
+  const kind = keeperKind(), d = new KINDS[kind](true); G.dragons.push(d);
+  d.place(G.W * .2, G.H * .72, -.3, kind === 'chinese' ? .55 : .1); d.reveal = 0;
+  d.target.x = G.W * .62; d.target.y = G.H * .3; d.speedMul = .6;
+  G.runners.push({ d, gen: director(d) });
+}
+syncDragons();
+initLibrary();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
