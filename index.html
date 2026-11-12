@@ -283,6 +283,8 @@ function glow(ctx, x, y, r, col) {
 }
 
 /* ---------------------------- config ---------------------------- */
+const isHexColor = v => typeof v === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v);
+const normColor = (v, d) => { v = String(v).trim(); if (!v.startsWith('#')) v = '#' + v; return isHexColor(v) ? v : d; }; // the '#' is optional in links
 function loadConfig() {
   const c = JSON.parse(JSON.stringify(DEFAULTS));
   try {
@@ -299,9 +301,11 @@ function loadConfig() {
       const d = DEFAULTS[k];
       c[k] = Array.isArray(d) ? v.split(',').map(s => s.trim()).filter(Boolean)
         : typeof d === 'number' ? (isNaN(parseFloat(v)) ? d : parseFloat(v))
-        : typeof d === 'boolean' ? !/^(0|false|no|off)$/i.test(v) : v;
+        : typeof d === 'boolean' ? !/^(0|false|no|off)$/i.test(v)
+        : isHexColor(d) ? normColor(v, d) : v;
     }
   } catch (e) {}
+  for (const k in DEFAULTS) if (isHexColor(DEFAULTS[k])) c[k] = normColor(c[k], DEFAULTS[k]); // never keep a broken colour (it draws black)
   return c;
 }
 function saveConfig() {
@@ -313,7 +317,9 @@ function settingsUrl() { // this page's address with every current setting as a 
   const q = new URLSearchParams();
   for (const k in DEFAULTS) {
     if (k === 'images' && !cfg.images.length) continue;
-    q.set(k, Array.isArray(cfg[k]) ? cfg[k].join(',') : String(cfg[k]));
+    q.set(k, Array.isArray(cfg[k]) ? cfg[k].join(',')
+      : isHexColor(DEFAULTS[k]) ? String(cfg[k]).replace(/^#/, '') // no '#' in the link: it is easily lost (read as the start of a #fragment) when the link is copied or retyped
+      : String(cfg[k]));
   }
   const u = new URL(location.href); u.search = q.toString(); u.hash = ''; return u.href;
 }
